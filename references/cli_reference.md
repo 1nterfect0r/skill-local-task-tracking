@@ -18,11 +18,9 @@
 ## 1) Global conventions
 
 ### 1.0 Invocation forms and complete command set
-Use either of these invocation forms:
+Use these invocation form:
 
 ```bash
-task-tracking <command> ...
-# or
 python3 {baseDir}/scripts/task_tracking.py <command> ...
 ```
 
