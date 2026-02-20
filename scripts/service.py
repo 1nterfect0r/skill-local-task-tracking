@@ -3,7 +3,7 @@ import datetime
 from errors import ValidationError, NotFoundError, ConflictError, IntegrityError
 from storage import get_root, safe_join, read_json, write_json_atomic, write_text_atomic, ProjectLock
 from validators import validate_id, validate_status, validate_statuses, validate_tags, validate_priority, validate_due_date, parse_due_date
-from utils import now_utc_iso, task_id_from_title, title_from_task_id
+from utils import now_utc_iso
 
 
 def _project_dir(root, project_id):
@@ -29,10 +29,7 @@ def _tx_path(root, project_id):
 
 
 def _meta_for_storage(meta):
-    out = dict(meta or {})
-    # title is derived from task_id and should not be persisted
-    out.pop("title", None)
-    return out
+    return dict(meta or {})
 
 
 def _recover_move(root, project_id):
@@ -208,19 +205,9 @@ def init_project(project_id, statuses):
     return {"ok": True, "project_id": project_id, "statuses": statuses}
 
 
-def add_task(project_id, title, status, task_id=None, body=None, tags=None, assignee=None, priority=None, due_date=None):
+def add_task(project_id, task_id, status=None, body=None, tags=None, assignee=None, priority=None, due_date=None):
     validate_id(project_id, "project_id")
-    if not title or not isinstance(title, str):
-        raise ValidationError("Title is required")
-    normalized_title = " ".join(title.strip().split())
-    if not normalized_title:
-        raise ValidationError("Title is required")
-    derived_task_id = task_id_from_title(normalized_title)
-    if not derived_task_id:
-        raise ValidationError("Title is required")
-    validate_id(derived_task_id, "task_id")
-    if title_from_task_id(derived_task_id) != normalized_title:
-        raise ValidationError("Title must use spaces instead of underscores", {"title": title})
+    validate_id(task_id, "task_id")
     root = get_root()
 
     tags_list = None
@@ -251,19 +238,8 @@ def add_task(project_id, title, status, task_id=None, body=None, tags=None, assi
             indexes[st] = idx
             all_ids.update(idx.keys())
 
-        if task_id:
-            validate_id(task_id, "task_id")
-            if task_id != derived_task_id:
-                raise ValidationError("Title and task_id must match", {"title": normalized_title, "task_id": task_id})
-            if task_id in all_ids:
-                raise ConflictError("Task ID already exists", {"task_id": task_id})
-        else:
-            base = derived_task_id
-            task_id = base
-            suffix = 2
-            while task_id in all_ids:
-                task_id = f"{base}-{suffix}"
-                suffix += 1
+        if task_id in all_ids:
+            raise ConflictError("Task ID already exists", {"task_id": task_id})
 
         index = indexes[status]
         if task_id in index:
@@ -306,7 +282,6 @@ def add_task(project_id, title, status, task_id=None, body=None, tags=None, assi
         "project_id": project_id,
         "task_id": task_id,
         "status": status,
-        "title": title_from_task_id(task_id),
     }
 
 def list_tasks(project_id, status=None, tag=None, assignee=None, priority=None, fields=None, limit=100, offset=0, sort="updated_at", desc=True):
@@ -328,7 +303,7 @@ def list_tasks(project_id, status=None, tag=None, assignee=None, priority=None, 
         if offset is None or offset < 0:
             raise ValidationError("Offset must be >= 0")
 
-        allowed_sort = {"created_at", "updated_at", "title", "priority", "due_date"}
+        allowed_sort = {"created_at", "updated_at", "priority", "due_date"}
         if sort not in allowed_sort:
             raise ValidationError("Invalid sort field", {"sort": sort})
 
@@ -340,7 +315,6 @@ def list_tasks(project_id, status=None, tag=None, assignee=None, priority=None, 
                     continue
                 meta_out = dict(meta)
                 meta_out["status"] = st
-                meta_out["title"] = title_from_task_id(meta_out.get("task_id") or "")
                 if tag and ("tags" not in meta_out or tag not in meta_out.get("tags", [])):
                     continue
                 if assignee and meta_out.get("assignee") != assignee:
@@ -373,10 +347,14 @@ def list_tasks(project_id, status=None, tag=None, assignee=None, priority=None, 
 
     paged = items_sorted[offset: offset + limit]
 
+    allowed_fields = {"task_id", "status", "created_at", "updated_at", "tags", "assignee", "priority", "due_date"}
     if fields:
         fields_set = [f.strip() for f in fields.split(",") if f.strip()]
+        invalid = [f for f in fields_set if f not in allowed_fields]
+        if invalid:
+            raise ValidationError("Invalid field in fields", {"field": invalid[0]})
     else:
-        fields_set = ["task_id", "status", "title", "priority", "updated_at"]
+        fields_set = ["task_id", "status", "priority", "updated_at"]
 
     # ensure task_id + status are always present
     for required in ("task_id", "status"):
@@ -404,7 +382,6 @@ def show_task(project_id, task_id, include_body=False, max_body_chars=None, max_
         _ensure_integrity(project_id, locked=True)
         status, meta = find_task(root, project_id, task_id)
         meta_out = dict(meta)
-        meta_out["title"] = title_from_task_id(task_id)
         result = {"ok": True, "project_id": project_id, "task_id": task_id, "status": status, "meta": meta_out}
 
         if include_body:
@@ -544,7 +521,6 @@ def meta_update(project_id, task_id, patch):
         if k in forbidden:
             raise ValidationError("Forbidden field in unset", {"field": k})
 
-    # title is derived from task_id; not stored or updated
     if "tags" in set_obj:
         if set_obj.get("tags") is None:
             raise ValidationError("Tags must be a list")

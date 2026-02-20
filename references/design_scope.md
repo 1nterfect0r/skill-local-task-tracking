@@ -32,7 +32,6 @@
 - **Fallback of CLI:** if `TASK_TRACKING_ROOT` is not set, `${CWD}/.task_tracking`.
 - **Safety rule:** Never read/write outside root (prevent path traversal).
 - **Identifiers:** `project_id` and `task_id` must match `^[A-Za-z0-9_-]+$`. No separators, no `..`, no spaces.
-  - Display: `_` can be mapped to Space; internally the ID remains unchanged.
 - **Status names:** also `^[A-Za-z0-9_-]+$`.
   - v1 default status list at initialization (e.g. `backlog,open,done`).
   - Status list is **always** derived from the existing status folders.

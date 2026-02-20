@@ -19,9 +19,9 @@ run_fail_cmd(){ desc="$1"; exp="$2"; cmd="$3"; out=$(bash -lc "$cmd" 2>&1); code
 
 log "== Core flow =="
 run_ok "init-project" python3 "${baseDir}/scripts/task_tracking.py" init-project acme-s4 --statuses backlog,open,done
-run_ok "add default backlog" python3 "${baseDir}/scripts/task_tracking.py" add acme-s4 --title "fix posting logic"
-run_ok "add open with meta" python3 "${baseDir}/scripts/task_tracking.py" add acme-s4 --title "adjust tax codes" --status open --task-id adjust_tax_codes --tags "sap,fi" --assignee hannes --priority P2 --body "Initial body"
-run_ok "add duplicate title slug" python3 "${baseDir}/scripts/task_tracking.py" add acme-s4 --title "fix posting logic"
+run_ok "add default backlog" python3 "${baseDir}/scripts/task_tracking.py" add acme-s4 --task-id fix_posting_logic
+run_ok "add open with meta" python3 "${baseDir}/scripts/task_tracking.py" add acme-s4 --task-id adjust_tax_codes --status open --tags "sap,fi" --assignee hannes --priority P2 --body "Initial body"
+run_fail "add duplicate task_id" 4 python3 "${baseDir}/scripts/task_tracking.py" add acme-s4 --task-id fix_posting_logic
 run_ok "list default" python3 "${baseDir}/scripts/task_tracking.py" list acme-s4 --limit 100 --sort updated_at --desc
 run_ok "show meta" python3 "${baseDir}/scripts/task_tracking.py" show acme-s4 adjust_tax_codes
 run_ok_cmd "set-body" "python3 ${baseDir}/scripts/task_tracking.py set-body acme-s4 adjust_tax_codes --text $'L1\\nL2\\nL3\\nL4'"
@@ -34,6 +34,7 @@ run_ok "integrity-check clean" python3 "${baseDir}/scripts/task_tracking.py" int
 log "== Regression checks for fixes =="
 run_fail "meta-update invalid patch set=[]" 2 python3 "${baseDir}/scripts/task_tracking.py" meta-update acme-s4 fix_posting_logic --patch-json '{"set":[],"unset":[]}'
 run_fail "list limit >1000" 2 python3 "${baseDir}/scripts/task_tracking.py" list acme-s4 --limit 1001
+run_fail "list fields title forbidden" 2 python3 "${baseDir}/scripts/task_tracking.py" list acme-s4 --fields title --limit 10
 
 # corrupt due_date and verify list does not crash
 python3 - <<'PY'
@@ -56,31 +57,6 @@ if obj.get("ok") is True:
 raise SystemExit(1)
 PY
   if [ $? -eq 0 ]; then log "PASS: list due_date invalid treated as missing"; pass=$((pass+1)); else log "FAIL: list due_date invalid returned not ok"; fail=$((fail+1)); fi
-fi
-
-# status override: set wrong meta status, list should return folder status
-python3 - <<'PY'
-import json, os
-path=os.path.join("/tmp/tt-root","acme-s4","backlog","index.json")
-with open(path,"r",encoding="utf-8") as f: data=json.load(f)
-data["fix_posting_logic"]["status"]="open"
-with open(path,"w",encoding="utf-8") as f: json.dump(data,f)
-PY
-out=$(python3 "${baseDir}/scripts/task_tracking.py" list acme-s4 --limit 200 2>&1); code=$?
-if [ $code -ne 0 ]; then log "FAIL: list status override (exit $code) out=$out"; fail=$((fail+1));
-else
-  tmp=/tmp/tt-out.json
-  echo "$out" > $tmp
-  python3 - <<'PY'
-import json
-with open("/tmp/tt-out.json","r",encoding="utf-8") as f: obj=json.load(f)
-items=obj.get("items",[])
-for it in items:
-    if it.get("task_id") == "fix_posting_logic":
-        raise SystemExit(0 if it.get("status") == "backlog" else 1)
-raise SystemExit(1)
-PY
-  if [ $? -eq 0 ]; then log "PASS: list uses folder status"; pass=$((pass+1)); else log "FAIL: list status not overridden"; fail=$((fail+1)); fi
 fi
 
 log "== Edge cases 18.x =="

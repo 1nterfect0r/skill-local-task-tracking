@@ -92,10 +92,10 @@ Add to `~/.openclaw/openclaw.json`:
 ---
 
 ## Core concepts (must-know)
-- `task_id` is the canonical identifier.
-- `title` is **derived** from `task_id` (underscores ↔ spaces); **title is not stored**.
+- `task_id` is the canonical and only task identifier.
+- There is no separate title field in this model.
 - `status` is **derived from the task folder**; it is not stored in metadata.
-- Collision handling in `add` is deterministic using suffixes `-2`, `-3`, …
+- `add` requires an explicit `--task-id` and fails on duplicates.
 - Commands may run a preflight integrity repair.
 
 ---
@@ -116,7 +116,7 @@ Set `TASK_TRACKING_ROOT` via `~/.openclaw/openclaw.json` (see above).
 
 ```bash
 python3 {baseDir}/scripts/task_tracking.py init-project acme-s4 --statuses backlog,open,done
-python3 {baseDir}/scripts/task_tracking.py add acme-s4 --title "Fix posting logic"
+python3 {baseDir}/scripts/task_tracking.py add acme-s4 --task-id fix_posting_logic
 python3 {baseDir}/scripts/task_tracking.py list acme-s4 --limit 20
 python3 {baseDir}/scripts/task_tracking.py show acme-s4 fix_posting_logic --body --max-body-lines 50 --max-body-chars 800
 ```
@@ -125,7 +125,7 @@ python3 {baseDir}/scripts/task_tracking.py show acme-s4 fix_posting_logic --body
 
 ## Commands (cheat sheet)
 - `init-project <project_id> [--statuses backlog,open,done]` — initialize a project and status columns
-- `add <project_id> --title "..." [--status <status>] [--task-id <id>] [--body "..."] [--tags "a,b,c"]` — create task
+- `add <project_id> --task-id <id> [--status <status>] [--body "..."] [--tags "a,b,c"]` — create task
 - `list <project_id> [filters...] [--fields a,b,c] [--limit N] [--offset K] [--sort <field>] [--desc]` — list tasks
 - `show <project_id> <task_id> [--body] [--max-body-chars N] [--max-body-lines N]` — show task
 - `move <project_id> <task_id> <new_status>` — move task across columns (atomic)

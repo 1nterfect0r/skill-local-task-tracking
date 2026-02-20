@@ -28,10 +28,9 @@ Each status folder contains a `index.json` with this top-level format:
 - Key is `task_id`.
 - Value is the metadata object of the task.
 
-### 1.2 Derived fields (`title`, `status`) are not persistent
-- `title` is **not saved anywhere**.
+### 1.2 Derived field (`status`) is not persistent
 - `status` is **not saved in metadata**; it is derived from the folder containing the task.
-- `title` is formed from `task_id` during I/O (`_` → space).
+- `task_id` is the single canonical task identifier.
 
 ---
 
@@ -81,7 +80,7 @@ These fields must not be changed in either `set` or `unset`:
 
 Reason:
 - `status` is derived from the status folder and is not stored in metadata.
-- `title` is derived from `task_id` and is not stored.
+- `title` is not part of the task data model.
 - Core identity/history (`task_id`, `created_at`, `updated_at`) remains protected.
 
 ---

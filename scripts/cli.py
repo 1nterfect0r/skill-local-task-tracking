@@ -25,9 +25,8 @@ def main(argv=None):
 
     p_add = sub.add_parser("add")
     p_add.add_argument("project_id")
-    p_add.add_argument("--title", required=True)
+    p_add.add_argument("--task-id", required=True)
     p_add.add_argument("--status")
-    p_add.add_argument("--task-id")
     p_add.add_argument("--body")
     p_add.add_argument("--tags")
     p_add.add_argument("--assignee")
@@ -87,9 +86,8 @@ def main(argv=None):
         elif cmd == "add":
             result = service.add_task(
                 args.project_id,
-                title=args.title,
-                status=args.status,
                 task_id=args.task_id,
+                status=args.status,
                 body=args.body,
                 tags=args.tags,
                 assignee=args.assignee,

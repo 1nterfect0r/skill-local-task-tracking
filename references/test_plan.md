@@ -94,27 +94,27 @@ python3 {baseDir}/scripts/task_tracking.py init-project acme-s4
 ### 2.1 Add default status (backlog)
 **Command**
 ```bash
-python3 {baseDir}/scripts/task_tracking.py add acme-s4 --title "fix posting logic"
+python3 {baseDir}/scripts/task_tracking.py add acme-s4 --task-id fix_posting_logic
 ```
 **Expected JSON**
 ```json
-{ "ok": true, "project_id": "acme-s4", "task_id": "fix_posting_logic", "status": "backlog", "title": "fix posting logic" }
+{ "ok": true, "project_id": "acme-s4", "task_id": "fix_posting_logic", "status": "backlog" }
 ```
 **Expected FS**
 ```
 <ROOT>/acme-s4/backlog/index.json
 <ROOT>/acme-s4/backlog/fix_posting_logic.md   # empty
 ```
-`index.json` contains entry with fields `task_id,status,created_at,updated_at`.
+`index.json` contains entry with fields `task_id,created_at,updated_at` (status derived from folder).
 
 ### 2.2 Add with explicit status + metadata
 **Command**
 ```bash
-python3 {baseDir}/scripts/task_tracking.py add acme-s4 --title "adjust tax codes" --status open --task-id adjust_tax_codes --tags "sap,fi" --assignee hannes --priority P2 --body "Initial body"
+python3 {baseDir}/scripts/task_tracking.py add acme-s4 --task-id adjust_tax_codes --status open --tags "sap,fi" --assignee hannes --priority P2 --body "Initial body"
 ```
 **Expected JSON**
 ```json
-{ "ok": true, "project_id": "acme-s4", "task_id": "adjust_tax_codes", "status": "open", "title": "adjust tax codes" }
+{ "ok": true, "project_id": "acme-s4", "task_id": "adjust_tax_codes", "status": "open" }
 ```
 **Expected FS**
 ```
@@ -122,20 +122,21 @@ python3 {baseDir}/scripts/task_tracking.py add acme-s4 --title "adjust tax codes
 <ROOT>/acme-s4/open/index.json          # contains meta with tags/assignee/priority
 ```
 
-### 2.3 Task-ID uniqueness suffix
+### 2.3 Task-ID uniqueness
 **Command**
 ```bash
-python3 {baseDir}/scripts/task_tracking.py add acme-s4 --title "fix posting logic"
+python3 {baseDir}/scripts/task_tracking.py add acme-s4 --task-id fix_posting_logic
 ```
 **Expected JSON**
 ```json
-{ "ok": true, "project_id": "acme-s4", "task_id": "fix_posting_logic-2", "status": "backlog", "title": "fix posting logic-2" }
+{ "ok": false, "error": { "code": "CONFLICT", "message": "Task ID already exists" } }
 ```
+**Exit Code:** `4`
 
 ### 2.4 Validation errors
 - Invalid ID / status (e.g. spaces, `..`) → `VALIDATION_ERROR` (exit 2)
 - Invalid priority → `VALIDATION_ERROR`
-- Duplicate `task_id` (with **matching title**) → `CONFLICT` (exit 4)
+- Duplicate `task_id` → `CONFLICT` (exit 4)
 
 ---
 
@@ -148,16 +149,16 @@ python3 {baseDir}/scripts/task_tracking.py list acme-s4 --limit 100 --sort updat
 ```
 **Expected JSON (shape)**
 ```json
-{ "ok": true, "project_id": "acme-s4", "count": 3, "items": [ {"task_id":"...","status":"...","title":"...","priority":null,"updated_at":"<ISO>"}, ... ] }
+{ "ok": true, "project_id": "acme-s4", "count": 3, "items": [ {"task_id":"...","status":"...","priority":null,"updated_at":"<ISO>"}, ... ] }
 ```
 **Expected Behavior**
 - Sorted by `updated_at` desc.
-- Fields default to `task_id,status,title,priority,updated_at`.
+- Fields default to `task_id,status,priority,updated_at`.
 
 ### 3.2 Filters & fields
 **Command**
 ```bash
-python3 {baseDir}/scripts/task_tracking.py list acme-s4 --status open --fields task_id,title,assignee --limit 10
+python3 {baseDir}/scripts/task_tracking.py list acme-s4 --status open --fields task_id,assignee --limit 10
 ```
 **Expected JSON**
 - `items` contain only requested fields + enforced `task_id,status`.
@@ -181,7 +182,7 @@ python3 {baseDir}/scripts/task_tracking.py show acme-s4 adjust_tax_codes
 ```
 **Expected JSON**
 ```json
-{ "ok": true, "project_id": "acme-s4", "task_id": "adjust_tax_codes", "status": "open", "meta": { "task_id":"adjust_tax_codes", "title":"adjust tax codes", "created_at":"<ISO>", "updated_at":"<ISO>", "tags":["sap","fi"], "assignee":"hannes", "priority":"P2" } }
+{ "ok": true, "project_id": "acme-s4", "task_id": "adjust_tax_codes", "status": "open", "meta": { "task_id":"adjust_tax_codes", "created_at":"<ISO>", "updated_at":"<ISO>", "tags":["sap","fi"], "assignee":"hannes", "priority":"P2" } }
 ```
 
 ### 4.2 Body with limits
@@ -356,7 +357,7 @@ echo '{"pid":999999}' > <ROOT>/acme-s4/.lock
 ```
 **Command**
 ```bash
-python3 {baseDir}/scripts/task_tracking.py add acme-s4 --title "Lock test"
+python3 {baseDir}/scripts/task_tracking.py add acme-s4 --task-id lock_test
 ```
 **Expected:**
 - Lock is recognized as stale → operation succeeds
@@ -405,9 +406,9 @@ python3 {baseDir}/scripts/task_tracking.py list acme-s4 --priority P2 --limit 10
 ### 14.3 `add --due-date` valid + invalid
 **Commands**
 ```bash
-python3 {baseDir}/scripts/task_tracking.py add acme-s4 --title "task a" --task-id task_a --due-date 2026-03-01
-python3 {baseDir}/scripts/task_tracking.py add acme-s4 --title "task b" --task-id task_b --due-date 2026-03-01T12:34:56Z
-python3 {baseDir}/scripts/task_tracking.py add acme-s4 --title "bad due" --task-id bad_due --due-date 2026-02-30
+python3 {baseDir}/scripts/task_tracking.py add acme-s4 --task-id task_a --due-date 2026-03-01
+python3 {baseDir}/scripts/task_tracking.py add acme-s4 --task-id task_b --due-date 2026-03-01T12:34:56Z
+python3 {baseDir}/scripts/task_tracking.py add acme-s4 --task-id bad_due --due-date 2026-02-30
 ```
 **Expected:** first two ok; last returns `VALIDATION_ERROR` (exit 2).
 
@@ -458,7 +459,7 @@ PY
 ```
 **Command**
 ```bash
-python3 {baseDir}/scripts/task_tracking.py add acme-s4 --title "Lock active"
+python3 {baseDir}/scripts/task_tracking.py add acme-s4 --task-id lock_active
 ```
 **Expected:** `CONFLICT` (exit 4).
 
@@ -503,14 +504,14 @@ echo "orphan" > <ROOT>/acme-s4/backlog/orphan_body.md
 ```
 **Command**
 ```bash
-python3 {baseDir}/scripts/task_tracking.py add acme-s4 --title "orphan body" --task-id orphan_body
+python3 {baseDir}/scripts/task_tracking.py add acme-s4 --task-id orphan_body
 ```
 **Expected:** `CONFLICT` (exit 4) — Auto‑Fix indexes the orphan body before `add`, so the task ID already exists.
 
 ### 15.3 `list --fields` without `task_id/status`
 **Command**
 ```bash
-python3 {baseDir}/scripts/task_tracking.py list acme-s4 --fields title --limit 10
+python3 {baseDir}/scripts/task_tracking.py list acme-s4 --fields updated_at --limit 10
 ```
 **Expected:** items still include `task_id` and `status`.
 
@@ -559,7 +560,7 @@ echo 'not-json' > <ROOT>/acme-s4/.lock
 ```
 **Command**
 ```bash
-python3 {baseDir}/scripts/task_tracking.py add acme-s4 --title "Lock invalid"
+python3 {baseDir}/scripts/task_tracking.py add acme-s4 --task-id lock_invalid
 ```
 **Expected:** `CONFLICT` (exit 4).
 
@@ -621,8 +622,8 @@ rm -rf /tmp/tt-root
 **Flow**
 ```bash
 python3 {baseDir}/scripts/task_tracking.py init-project acme-s4 --statuses backlog,open,done
-python3 {baseDir}/scripts/task_tracking.py add acme-s4 --title "ingest invoice feed" --task-id ingest_invoice_feed --tags "finance,etl" --assignee hannes --priority P2 --due-date 2026-03-15
-python3 {baseDir}/scripts/task_tracking.py add acme-s4 --title "fix posting logic" --task-id fix_posting_logic
+python3 {baseDir}/scripts/task_tracking.py add acme-s4 --task-id ingest_invoice_feed --tags "finance,etl" --assignee hannes --priority P2 --due-date 2026-03-15
+python3 {baseDir}/scripts/task_tracking.py add acme-s4 --task-id fix_posting_logic
 python3 {baseDir}/scripts/task_tracking.py list acme-s4 --limit 10
 python3 {baseDir}/scripts/task_tracking.py show acme-s4 ingest_invoice_feed
 python3 {baseDir}/scripts/task_tracking.py set-body acme-s4 ingest_invoice_feed --text "Initial spec"
@@ -681,7 +682,7 @@ python3 {baseDir}/scripts/task_tracking.py meta-update acme-s4 task_a --patch-js
 ```
 **Expected:** `VALIDATION_ERROR` (exit 2)
 
-### 18.6 `meta-update` set title invalid
+### 18.6 `meta-update` set title is forbidden
 **Commands**
 ```bash
 python3 {baseDir}/scripts/task_tracking.py meta-update acme-s4 task_a --patch-json '{"set":{"title":123},"unset":[]}'

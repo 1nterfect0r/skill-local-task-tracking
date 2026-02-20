@@ -40,12 +40,9 @@
 ### 1.3 ID/Status Validation
 - `project_id`, `task_id`, `status` follow Regex: `^[A-Za-z0-9_-]+$`.
 
-### 1.4 Derived fields (`title`, `status`)
-- `title` is **only I/O representation** of `task_id`:
-  - Input: Spaces are normalized to `_`.
-  - Output: `_` becomes Spaces.
-- `title` is not persistently stored in the index.
+### 1.4 Derived field (`status`)
 - `status` is derived from the status folder and is not stored in task metadata.
+- `task_id` is the single user-facing task identifier.
 
 ---
 
@@ -124,9 +121,8 @@ task-tracking init-project <project_id> [--statuses <csv>]
 ### Syntax
 ```bash
 task-tracking add <project_id>
-  --title "<title>"
+  --task-id <task_id>
   [--status <status>]
-  [--task-id <task_id>]
   [--body "<text>"]
   [--tags "a,b,c"]
   [--assignee "<name>"]
@@ -135,16 +131,9 @@ task-tracking add <project_id>
 ```
 
 ### Defaults & Constraints
-- `--title` required, string, not empty after trim/collapse.
-- `task_id` is derived from `title` (`spaces -> _`).
-- Title with `_` is not permitted (`Title must use spaces instead of underscores`).
-- With explicit `--task-id`:
-  - must be regex valid,
-  - must exactly match the normalized title,
-  - must not exist globally in the project.
-- Without `--task-id`:
-  - auto-generated from `title`,
-  - in case of collision: deterministic `-2`, `-3`, ...
+- `--task-id` required.
+- `task_id` must satisfy ID regex `^[A-Za-z0-9_-]+$`.
+- `task_id` must not already exist anywhere in the project.
 - `--status` optional; Default is the **first** status in the lexicographically sorted project status list.
 - `--tags`: CSV, split to `,`, trim per entry, discard empty entries.
 - `--assignee`: must be string.
@@ -157,8 +146,7 @@ task-tracking add <project_id>
   "ok": true,
   "project_id": "acme-s4",
   "task_id": "fix_posting_logic",
-  "status": "open",
-  "title": "fix posting logic"
+  "status": "open"
 }
 ```
 
@@ -176,7 +164,7 @@ task-tracking list <project_id>
   [--fields f1,f2,...]
   [--limit <int>]
   [--offset <int>]
-  [--sort created_at|updated_at|title|priority|due_date]
+  [--sort created_at|updated_at|priority|due_date]
   [--desc | --asc]
 ```
 
@@ -185,7 +173,7 @@ task-tracking list <project_id>
 - `offset` default `0`, must be `>=0`.
 - `sort` default `updated_at`.
 - Sort order default `desc=true` (if neither `--desc` nor `--asc` is set).
-- Allowed sort fields: `created_at`, `updated_at`, `title`, `priority`, `due_date`.
+- Allowed sort fields: `created_at`, `updated_at`, `priority`, `due_date`.
 
 ### Sorting (normative)
 1. Values with an existing sort key (`present`) are sorted according to `(sort_value, task_id)`.
@@ -201,8 +189,10 @@ task-tracking list <project_id>
   - `assignee`: exact string match
   - `priority`: exact string match
 - Default fields without `--fields`:
-  - `task_id,status,title,priority,updated_at`
+  - `task_id,status,priority,updated_at`
 - For `--fields`: only desired fields, **but `task_id` and `status` are always added**.
+- Allowed `--fields`: `task_id,status,created_at,updated_at,tags,assignee,priority,due_date`.
+- Unknown field names cause `VALIDATION_ERROR`.
 
 ### Output (minimal example)
 ```json
@@ -214,7 +204,6 @@ task-tracking list <project_id>
     {
       "task_id": "fix_posting_logic",
       "status": "open",
-      "title": "fix posting logic",
       "priority": "P2",
       "updated_at": "2026-02-19T15:20:00+00:00"
     }
@@ -255,8 +244,7 @@ If `--body` is active and both limits are set:
   "meta": {
     "task_id": "fix_posting_logic",
     "created_at": "2026-02-19T15:00:00+00:00",
-    "updated_at": "2026-02-19T15:20:00+00:00",
-    "title": "fix posting logic"
+    "updated_at": "2026-02-19T15:20:00+00:00"
   },
   "body": {
     "text": "...",
@@ -330,7 +318,8 @@ Exactly **one** patch source is allowed.
 - `unset` (if present) must be a list.
 - Not patchable in `set` or `unset`:
   - `task_id`, `created_at`, `updated_at`, `status`, `title`
-  - `status`/`title` are derived fields and are not stored in metadata.
+  - `status` is derived from the status folder.
+  - `title` is not part of the task data model.
 - `unset` elements: non-empty strings only.
 - Type rules for `set`:
   - `tags`: list of non-empty strings
