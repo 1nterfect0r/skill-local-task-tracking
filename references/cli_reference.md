@@ -2,6 +2,7 @@
 
 ## Table of contents
 - [1) Global Conventions](#1-global-conventions)
+  - [1.0 Invocation forms and complete command set](#10-invocation-forms-and-complete-command-set)
 - [2) Exit Codes and error.code](#2-exit-codes-and-errorcode)
 - [3) Locking/conflict semantics](#3-lockingconflict-semantics)
 - [4) Command reference](#4-command-reference)
@@ -15,6 +16,25 @@
   - [4.8 integrity-check](#48-integrity-check)
 
 ## 1) Global conventions
+
+### 1.0 Invocation forms and complete command set
+Use either of these invocation forms:
+
+```bash
+task-tracking <command> ...
+# or
+python3 {baseDir}/scripts/task_tracking.py <command> ...
+```
+
+Complete command set (CLI parity):
+- `init-project`
+- `add`
+- `list`
+- `show`
+- `move`
+- `meta-update`
+- `set-body`
+- `integrity-check`
 
 ### 1.1 Output format
 - `stdout`: always exactly **one JSON object**.
