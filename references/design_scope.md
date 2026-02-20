@@ -25,6 +25,7 @@
 - **Project:** Collection of tasks under `project_id`.
 - **Status:** State of a task (configured set; default e.g. `backlog`, `open`, `done`).
 - **Task:** consists of **Body** (`{task_id}.md`) and **Metadata** (entry in `index.json` of the respective status folder).
+  - `status` is derived from the folder and not persisted in metadata.
 
 ## 2. Configuration & Path Rules
 - **Root (OpenClaw recommended):** `TASK_TRACKING_ROOT=.task-tracking` (relative to workspace CWD, effective `<workspace>/.task-tracking`).

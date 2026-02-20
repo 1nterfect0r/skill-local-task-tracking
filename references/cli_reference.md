@@ -40,11 +40,12 @@
 ### 1.3 ID/Status Validation
 - `project_id`, `task_id`, `status` follow Regex: `^[A-Za-z0-9_-]+$`.
 
-### 1.4 Title/task-id rule
+### 1.4 Derived fields (`title`, `status`)
 - `title` is **only I/O representation** of `task_id`:
   - Input: Spaces are normalized to `_`.
   - Output: `_` becomes Spaces.
 - `title` is not persistently stored in the index.
+- `status` is derived from the status folder and is not stored in task metadata.
 
 ---
 
@@ -253,7 +254,6 @@ If `--body` is active and both limits are set:
   "status": "open",
   "meta": {
     "task_id": "fix_posting_logic",
-    "status": "open",
     "created_at": "2026-02-19T15:00:00+00:00",
     "updated_at": "2026-02-19T15:20:00+00:00",
     "title": "fix posting logic"
@@ -281,7 +281,7 @@ task-tracking move <project_id> <task_id> <new_status>
 - Writes Move Journal (`.tx_move.json`).
 - Moves body file via `os.replace`.
 - Updates source/target index.
-- Sets `status` to target status and `updated_at` to now.
+- Updates `updated_at` in metadata; status is derived from the destination folder.
 
 ### Error cases (excerpt)
 - Target status invalid: `VALIDATION_ERROR`.
@@ -330,6 +330,7 @@ Exactly **one** patch source is allowed.
 - `unset` (if present) must be a list.
 - Not patchable in `set` or `unset`:
   - `task_id`, `created_at`, `updated_at`, `status`, `title`
+  - `status`/`title` are derived fields and are not stored in metadata.
 - `unset` elements: non-empty strings only.
 - Type rules for `set`:
   - `tags`: list of non-empty strings

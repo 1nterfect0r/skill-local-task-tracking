@@ -181,7 +181,7 @@ python3 {baseDir}/scripts/task_tracking.py show acme-s4 adjust_tax_codes
 ```
 **Expected JSON**
 ```json
-{ "ok": true, "project_id": "acme-s4", "task_id": "adjust_tax_codes", "status": "open", "meta": { "task_id":"adjust_tax_codes", "title":"adjust tax codes", "status":"open", "created_at":"<ISO>", "updated_at":"<ISO>", "tags":["sap","fi"], "assignee":"hannes", "priority":"P2" } }
+{ "ok": true, "project_id": "acme-s4", "task_id": "adjust_tax_codes", "status": "open", "meta": { "task_id":"adjust_tax_codes", "title":"adjust tax codes", "created_at":"<ISO>", "updated_at":"<ISO>", "tags":["sap","fi"], "assignee":"hannes", "priority":"P2" } }
 ```
 
 ### 4.2 Body with limits
@@ -466,14 +466,15 @@ python3 {baseDir}/scripts/task_tracking.py add acme-s4 --title "Lock active"
 **Setup (examples, manual):**
 - Corrupt an index file (e.g., write `[]`) → `INDEX_ERROR`
 - Set a task meta to a non‑object (e.g., string) → `META_NOT_OBJECT`
-- Mismatch `task_id`/`status` inside meta → `TASK_ID_MISMATCH` / `STATUS_MISMATCH`
+- Mismatch `task_id` inside meta → `TASK_ID_MISMATCH`
+- (Optional legacy-data check) Inject extra unknown fields in `meta` and verify they do not break commands
 - Remove required fields (`created_at`, etc.) → `MISSING_FIELD`
 - Remove a status directory → `STATUS_DIR_MISSING`
 **Command**
 ```bash
 python3 {baseDir}/scripts/task_tracking.py integrity-check acme-s4 --fix
 ```
-**Expected:** issues reported; fixes applied where possible (e.g., `META_REPLACED`, `TASK_ID_FIXED`, `STATUS_FIXED`, `FIELD_FILLED`).
+**Expected:** issues reported; fixes applied where possible (e.g., `META_REPLACED`, `TASK_ID_FIXED`, `FIELD_FILLED`).
 
 ### 14.9 Duplicate resolution without `updated_at`
 **Setup:** create duplicate task in multiple statuses **without** `updated_at`.

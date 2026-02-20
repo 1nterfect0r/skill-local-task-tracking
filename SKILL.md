@@ -94,6 +94,7 @@ Add to `~/.openclaw/openclaw.json`:
 ## Core concepts (must-know)
 - `task_id` is the canonical identifier.
 - `title` is **derived** from `task_id` (underscores ↔ spaces); **title is not stored**.
+- `status` is **derived from the task folder**; it is not stored in metadata.
 - Collision handling in `add` is deterministic using suffixes `-2`, `-3`, …
 - Commands may run a preflight integrity repair.
 

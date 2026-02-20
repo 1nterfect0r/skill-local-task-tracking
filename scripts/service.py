@@ -28,6 +28,13 @@ def _tx_path(root, project_id):
     return safe_join(root, project_id, ".tx_move.json")
 
 
+def _meta_for_storage(meta):
+    out = dict(meta or {})
+    # title is derived from task_id and should not be persisted
+    out.pop("title", None)
+    return out
+
+
 def _recover_move(root, project_id):
     tx_path = _tx_path(root, project_id)
     if not os.path.exists(tx_path):
@@ -78,13 +85,13 @@ def _recover_move(root, project_id):
     if not isinstance(updated_meta, dict):
         base = dst_index.get(task_id) or src_index.get(task_id) or {}
         updated_meta = dict(base)
-        updated_meta["status"] = to_status
-        updated_meta["updated_at"] = now_utc_iso()
+
+    updated_meta = _meta_for_storage(updated_meta)
+    updated_meta["updated_at"] = now_utc_iso()
 
     # Commit to destination (deterministic recovery)
     if dst_body_exists:
         src_index.pop(task_id, None)
-        updated_meta["status"] = to_status
         dst_index[task_id] = updated_meta
         write_index(root, project_id, from_status, src_index)
         write_index(root, project_id, to_status, dst_index)
@@ -94,7 +101,6 @@ def _recover_move(root, project_id):
     if src_body_exists:
         os.replace(src_body, dst_body)
         src_index.pop(task_id, None)
-        updated_meta["status"] = to_status
         dst_index[task_id] = updated_meta
         write_index(root, project_id, from_status, src_index)
         write_index(root, project_id, to_status, dst_index)
@@ -270,7 +276,6 @@ def add_task(project_id, title, status, task_id=None, body=None, tags=None, assi
         now = now_utc_iso()
         meta = {
             "task_id": task_id,
-            "status": status,
             "created_at": now,
             "updated_at": now,
         }
@@ -454,9 +459,7 @@ def move_task(project_id, task_id, new_status):
         if task_id in dst_index:
             raise IntegrityError("Task already exists in destination index", {"task_id": task_id})
 
-        updated = dict(meta)
-        updated.pop("title", None)
-        updated["status"] = new_status
+        updated = _meta_for_storage(meta)
         updated["updated_at"] = now_utc_iso()
 
         src_new = dict(src_index)
@@ -566,8 +569,7 @@ def meta_update(project_id, task_id, patch):
         if task_id not in index:
             raise IntegrityError("Task missing from index", {"task_id": task_id})
 
-        updated = dict(meta)
-        updated.pop("title", None)
+        updated = _meta_for_storage(meta)
         for k, v in set_obj.items():
             updated[k] = v
         for k in unset_list:
@@ -608,8 +610,7 @@ def set_body(project_id, task_id, text=None, file_path=None):
             raise IntegrityError("Task missing from index", {"task_id": task_id})
         body_path = _body_path(root, project_id, status, task_id)
         write_text_atomic(body_path, text or "")
-        meta_updated = dict(meta)
-        meta_updated.pop("title", None)
+        meta_updated = _meta_for_storage(meta)
         meta_updated["updated_at"] = now_utc_iso()
         index[task_id] = meta_updated
         write_index(root, project_id, status, index)
@@ -626,11 +627,10 @@ def integrity_check(project_id, fix=False, locked=False):
     root = get_root()
     recovered = False
 
-    def _minimal_meta(task_id, status):
+    def _minimal_meta(task_id):
         now = now_utc_iso()
         return {
             "task_id": task_id,
-            "status": status,
             "created_at": now,
             "updated_at": now,
         }
@@ -668,7 +668,7 @@ def integrity_check(project_id, fix=False, locked=False):
         found = []
         issues = []
         fixed = []
-        required_fields = ["task_id", "status", "created_at", "updated_at"]
+        required_fields = ["task_id", "created_at", "updated_at"]
 
         index_map = {}
         id_to_statuses = {}
@@ -755,7 +755,7 @@ def integrity_check(project_id, fix=False, locked=False):
                 if not isinstance(meta, dict):
                     issue = {"type": "META_NOT_OBJECT", "status": status, "task_id": task_id}
                     if fix:
-                        index[task_id] = _minimal_meta(task_id, status)
+                        index[task_id] = _minimal_meta(task_id)
                         index_changed = True
                         _record(issue, resolved=True, fixed_item={"type": "META_REPLACED", "status": status, "task_id": task_id})
                     else:
@@ -772,23 +772,12 @@ def integrity_check(project_id, fix=False, locked=False):
                     else:
                         _record(issue)
 
-                if meta.get("status") != status:
-                    issue = {"type": "STATUS_MISMATCH", "status": status, "task_id": task_id}
-                    if fix:
-                        meta["status"] = status
-                        index_changed = True
-                        _record(issue, resolved=True, fixed_item={"type": "STATUS_FIXED", "status": status, "task_id": task_id})
-                    else:
-                        _record(issue)
-
                 for f in required_fields:
                     if f not in meta:
                         issue = {"type": "MISSING_FIELD", "status": status, "task_id": task_id, "field": f}
                         if fix:
                             if f == "task_id":
                                 meta["task_id"] = task_id
-                            elif f == "status":
-                                meta["status"] = status
                             else:
                                 meta[f] = now_utc_iso()
                             index_changed = True
@@ -816,7 +805,7 @@ def integrity_check(project_id, fix=False, locked=False):
                         if fix:
                             # only auto-add if task_id not present elsewhere
                             if tid not in id_to_statuses:
-                                index[tid] = _minimal_meta(tid, status)
+                                index[tid] = _minimal_meta(tid)
                                 index_changed = True
                                 id_to_statuses.setdefault(tid, []).append(status)
                                 _record(issue, resolved=True, fixed_item={"type": "ORPHAN_INDEX_CREATED", "status": status, "task_id": tid})

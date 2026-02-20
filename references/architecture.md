@@ -90,7 +90,6 @@ Typical `found`/`issues` types:
 - `STATUS_DIR_MISSING`
 - `META_NOT_OBJECT`
 - `TASK_ID_MISMATCH`
-- `STATUS_MISMATCH`
 - `MISSING_FIELD`
 - `MISSING_BODY`
 - `ORPHAN_BODY`
@@ -107,19 +106,18 @@ Typical `found`/`issues` types:
    - `fixed`: `INDEX_CREATED`.
 
 2. **Meta is not an object** (`META_NOT_OBJECT`)
-   - replaced by minimal meta (`task_id`, `status`, `created_at`, `updated_at`).
+   - replaced by minimal meta (`task_id`, `created_at`, `updated_at`).
    - `fixed`: `META_REPLACED`.
 
 3. **Required fields are missing** (`MISSING_FIELD`)
    - adds missing fields:
      - `task_id` = index key,
-     - `status` = status folder,
      - `created_at`/`updated_at` = `now`.
    - `fixed`: `FIELD_FILLED`.
 
-4. **`meta.task_id` or `meta.status` inconsistent**
-   - corrected to canonical values.
-   - `fixed`: `TASK_ID_FIXED`, `STATUS_FIXED`.
+4. **`meta.task_id` inconsistent**
+   - corrected to the canonical index key.
+   - `fixed`: `TASK_ID_FIXED`.
 
 5. **Empty/missing body file** (`MISSING_BODY`)
    - produces empty `<task_id>.md`.

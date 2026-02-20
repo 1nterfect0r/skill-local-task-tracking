@@ -27,5 +27,5 @@
 - The status list is **always** derived from existing status folders (no `project.json`).
 - There is exactly one `index.json` per status folder.
 - Each task exists exactly once: one index entry + one matching body file.
-- `meta.status` must match the status folder.
+- `status` is derived from the status folder name (it is not stored in `meta`).
 - `meta.task_id` must match the index key and filename (`<task_id>.md`).
