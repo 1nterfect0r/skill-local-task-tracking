@@ -37,6 +37,7 @@ This skill is intended to be used **per OpenClaw workspace**. Configure `TASK_TR
 **Recommended:**
 - `TASK_TRACKING_ROOT=.task-tracking` → resolves to `<workspace>/.task-tracking`
 
+Do **not** store state inside the skill folder (`.../skills/...`) because skill files may be replaced on updates.
 
 ### Configure via `openclaw.json` (best practice)
 Set the environment variable via OpenClaw configuration so it is injected consistently per run.
@@ -110,7 +111,8 @@ Add to `~/.openclaw/openclaw.json`:
 ---
 
 ## Quick start
-set TASK_TRACKING_ROOT via ~/.openclaw/openclaw.json (see above)   
+Set `TASK_TRACKING_ROOT` via `~/.openclaw/openclaw.json` (see above).
+
 ```bash
 python3 {baseDir}/scripts/task_tracking.py init-project acme-s4 --statuses backlog,open,done
 python3 {baseDir}/scripts/task_tracking.py add acme-s4 --title "Fix posting logic"

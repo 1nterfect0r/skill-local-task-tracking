@@ -1,31 +1,31 @@
-# Dateisystem-Layout (kanonisch)
+# Filesystem Layout (canonical)
 
 ## Root
-- Für OpenClaw-Workspaces empfohlen: `TASK_TRACKING_ROOT=.task-tracking` (relativ zum Workspace-CWD).
-- Effektiv ergibt das: `<workspace>/.task-tracking`.
-- Falls `TASK_TRACKING_ROOT` **nicht** gesetzt ist, nutzt die CLI als Fallback `${CWD}/.task_tracking`.
-- `TASK_TRACKING_ROOT` darf kein `..`-Segment enthalten.
-- **Safe-Join:** alle abgeleiteten Pfade werden via `realpath` geprüft und müssen unter Root liegen.
+- Recommended for OpenClaw workspaces: `TASK_TRACKING_ROOT=.task-tracking` (relative to the workspace CWD).
+- This resolves to: `<workspace>/.task-tracking`.
+- If `TASK_TRACKING_ROOT` is **not** set, the CLI falls back to `${CWD}/.task_tracking`.
+- `TASK_TRACKING_ROOT` must not contain a `..` segment.
+- **Safe join:** all derived paths are checked via `realpath` and must stay under the root.
 
-## Projektstruktur
+## Project structure
 
 ```text
 <TASK_TRACKING_ROOT>/
   <project_id>/
-    .lock                 # exklusiver Projekt-Lock (temporär während Operationen)
-    .tx_move.json         # Move-Journal (nur während/bei Recovery relevant)
+    .lock                 # exclusive project lock (temporary during operations)
+    .tx_move.json         # move journal (relevant during/for recovery)
     <status_1>/
-      index.json          # Metadaten-Map: { "<task_id>": <meta> }
-      <task_id>.md        # Task-Body
+      index.json          # metadata map: { "<task_id>": <meta> }
+      <task_id>.md        # task body
     <status_2>/
       index.json
       <task_id>.md
     ...
 ```
 
-## Regeln
-- Statusliste wird **immer** aus vorhandenen Statusordnern abgeleitet (kein `project.json`).
-- Pro Statusordner gibt es genau ein `index.json`.
-- Jede Task existiert genau einmal: ein Indexeintrag + eine passende Body-Datei.
-- `meta.status` muss dem Statusordner entsprechen.
-- `meta.task_id` muss dem Index-Key und Dateinamen (`<task_id>.md`) entsprechen.
+## Rules
+- The status list is **always** derived from existing status folders (no `project.json`).
+- There is exactly one `index.json` per status folder.
+- Each task exists exactly once: one index entry + one matching body file.
+- `meta.status` must match the status folder.
+- `meta.task_id` must match the index key and filename (`<task_id>.md`).

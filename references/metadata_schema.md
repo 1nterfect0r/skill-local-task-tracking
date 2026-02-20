@@ -1,22 +1,22 @@
-# Metadaten-Schema (Single Source of Truth, v1)
+# Metadata schema (Single Source of Truth, v1)
 
-## Inhaltsverzeichnis
-- [1) Persistentes Datenmodell](#1-persistentes-datenmodell)
-- [2) Task-Metadaten (`meta`)](#2-task-metadaten-meta)
-  - [2.1 Required Fields](#21-required-fields)
-  - [2.2 Optionale Standardfelder](#22-optionale-standardfelder)
-  - [2.3 Weitere benutzerdefinierte Felder](#23-weitere-benutzerdefinierte-felder)
-- [3) Nicht patchbare Felder](#3-nicht-patchbare-felder)
-- [4) Patch-Schema für `meta-update`](#4-patch-schema-für-meta-update)
-  - [4.1 Formales Patch-Format](#41-formales-patch-format)
-  - [4.2 Validierungsregeln](#42-validierungsregeln)
-- [5) Tags-Regeln und Normalisierung](#5-tags-regeln-und-normalisierung)
-- [6) Body-Datei-Schema](#6-body-datei-schema)
+## Table of contents
+- [1) Persistent data model](#1-persistent-data-model)
+- [2) Task metadata (`meta`)](#2-task-metadata-meta)
+  - [2.1 Required fields](#21-required-fields)
+  - [2.2 Optional standard fields](#22-optional-standard-fields)
+  - [2.3 Additional custom fields](#23-more-custom-fields)
+- [3) Unpatchable fields](#3-unpatchable-fields)
+- [4) Patch scheme for `meta-update`](#4-patch-scheme-for-meta-update)
+  - [4.1 Formal patch format](#41-formal-patch-format)
+  - [4.2 Validation rules](#42-validation-rules)
+- [5) Tags rules and normalization](#5-tags-rules-and-normalization)
+- [6) Body file schema](#6-body-file-schema)
 
-## 1) Persistentes Datenmodell
+## 1) Persistent data model
 
-### 1.1 Index-Datei je Status
-Jeder Statusordner enthält eine `index.json` mit diesem Top-Level-Format:
+### 1.1 Index file per status
+Each status folder contains a `index.json` with this top-level format:
 
 ```json
 {
@@ -24,54 +24,54 @@ Jeder Statusordner enthält eine `index.json` mit diesem Top-Level-Format:
 }
 ```
 
-- Top-Level ist immer ein JSON-Objekt.
-- Key ist `task_id`.
-- Value ist das Metadatenobjekt der Task.
+- Top level is always a JSON object.
+- Key is `task_id`.
+- Value is the metadata object of the task.
 
-### 1.2 Title ist abgeleitet, nicht persistent
-- `title` wird **nirgends gespeichert**.
-- `title` wird bei I/O aus `task_id` gebildet (`_` → Leerzeichen).
+### 1.2 Title is derived, not persistent
+- `title` is **not saved anywhere**.
+- `title` is formed from `task_id` during I/O (`_` → space).
 
 ---
 
-## 2) Task-Metadaten (`meta`)
+## 2) Task metadata (`meta`)
 
-## 2.1 Required Fields
-Diese Felder müssen in `meta` vorhanden sein:
+## 2.1 Required fields
+These fields must be present in `meta`:
 
-| Feld | Typ | Bedeutung |
+| Field | Type | Meaning |
 |---|---|---|
-| `task_id` | string | Kanonische Task-ID (muss zum Index-Key passen) |
-| `status` | string | Aktueller Status (muss zum Statusordner passen) |
+| `task_id` | string | Canonical task ID (must match the index key) |
+| `status` | string | Current status (must match the status folder) |
 | `created_at` | string | ISO-8601 Timestamp |
 | `updated_at` | string | ISO-8601 Timestamp |
 
-### 2.1.1 Zeitstempel-Semantik
-- `created_at`: wird bei Erstellung gesetzt.
-- `updated_at`: wird bei jeder Mutation aktualisiert (`add`, `move`, `meta-update`, `set-body`).
+### 2.1.1 Timestamp semantics
+- `created_at`: is set upon creation.
+- `updated_at`: updated with every mutation (`add`, `move`, `meta-update`, `set-body`).
 
-## 2.2 Optionale Standardfelder
+## 2.2 Optional standard fields
 
-| Feld | Typ | Validierung |
+| Field | Type | Validation |
 |---|---|---|
-| `tags` | array[string] | Jedes Element String und nicht leer (nach `strip`) |
-| `assignee` | string | Muss String sein |
-| `priority` | string | Nur `P0`, `P1`, `P2`, `P3` |
-| `due_date` | string | ISO-8601 Date oder DateTime |
+| `tags` | array[string] | Each element must be a string and not empty (after `strip`) |
+| `assignee` | string | Must be a string |
+| `priority` | string | Only `P0`, `P1`, `P2`, `P3` |
+| `due_date` | string | ISO-8601 Date or DateTime |
 
-Hinweis: `null` ist für die obigen typisierten Felder kein gültiger Wert im `set`-Pfad.
+Note: `null` is not a valid value in the `set` path for the above typed fields.
 
-## 2.3 Weitere benutzerdefinierte Felder
-`meta-update` erlaubt zusätzliche (nicht reservierte) Felder via `set`.
+## 2.3 Other custom fields
+`meta-update` allows additional (unreserved) fields via `set`.
 
-- Reservierte Felder siehe Abschnitt 3.
-- Für zusätzliche Felder gibt es derzeit keine strikte Typvalidierung im Code (außer den bekannten Feldern oben).
+- For reserved fields see section 3.
+- There is currently no strict type validation in the code for additional fields (other than the well-known fields above).
 
 ---
 
-## 3) Nicht patchbare Felder
+## 3) Non-patchable fields
 
-Diese Felder dürfen **weder** in `set` **noch** in `unset` verändert werden:
+These fields must not be changed in either `set` or `unset`:
 
 - `task_id`
 - `created_at`
@@ -79,16 +79,16 @@ Diese Felder dürfen **weder** in `set` **noch** in `unset` verändert werden:
 - `status`
 - `title`
 
-Begründung:
-- `status` wird nur über `move` geändert.
-- `title` ist abgeleitet, nicht gespeichert.
-- Kernidentität/-historie (`task_id`, `created_at`, `updated_at`) bleibt geschützt.
+Reason:
+- `status` is only changed via `move`.
+- `title` is derived, not stored.
+- Core identity/history (`task_id`, `created_at`, `updated_at`) remains protected.
 
 ---
 
-## 4) Patch-Schema für `meta-update`
+## 4) Patch scheme for `meta-update`
 
-## 4.1 Formales Patch-Format
+## 4.1 Formal patch format
 
 ```json
 {
@@ -101,57 +101,57 @@ Begründung:
 }
 ```
 
-### 4.1.1 Strukturregeln
-- Patch selbst: JSON-Objekt.
-- `set` optional; falls vorhanden: JSON-Objekt.
-- `unset` optional; falls vorhanden: JSON-Liste.
-- Weitere Top-Level-Keys sind aktuell ohne Wirkung (werden ignoriert).
+### 4.1.1 Structural rules
+- Patch itself: JSON object.
+- `set` optional; if present: JSON object.
+- `unset` optional; if present: JSON list.
+- Other top-level keys currently have no effect (are ignored).
 
-## 4.2 Validierungsregeln
+## 4.2 Validation rules
 
 ### 4.2.1 `set`
-- Key darf nicht reserviert sein (siehe Abschnitt 3).
-- Feldspezifische Regeln:
-  - `tags`: muss Liste sein; jedes Element String und nicht leer nach `strip`.
-  - `assignee`: muss String sein.
-  - `priority`: muss `P0|P1|P2|P3` sein.
-  - `due_date`: muss String sein und ISO-8601 Date/DateTime parsebar sein.
-- Für andere Keys gilt derzeit keine zusätzliche Typrestriktion.
+- Key must not be reserved (see section 3).
+- Field-specific rules:
+  - `tags`: must be list; every element string and not empty after `strip`.
+  - `assignee`: must be string.
+  - `priority`: must be `P0|P1|P2|P3`.
+  - `due_date`: must be a string and ISO-8601 Date/DateTime must be parseable.
+- There are currently no additional type restrictions for other keys.
 
 ### 4.2.2 `unset`
-- Muss Liste aus nichtleeren Strings sein.
-- Jeder Eintrag darf nicht reserviert sein.
-- Entfernt den Key, wenn vorhanden.
+- Must be a list of non-empty strings.
+- Each entry cannot be reserved.
+- Removes the key if it exists.
 
-### 4.2.3 Delete-Semantik
-- `null` in `set` ist **kein** Delete-Mechanismus.
-- Löschen erfolgt ausschließlich über `unset`.
+### 4.2.3 Delete semantics
+- `null` in `set` is **not** a delete mechanism.
+- Deletion is performed only via `unset`.
 
 ---
 
-## 5) Tags-Regeln und Normalisierung
+## 5) Tags rules and normalization
 
-## 5.1 Beim `add`-Command
-`--tags "a,b,c"` wird normalisiert:
-1. Split an `,`
-2. Trim je Tag
-3. Leere Tags werden verworfen
+## 5.1 For the `add` command
+`--tags "a,b,c"` is normalized:
+1. Split on `,`
+2. Trim each tag
+3. Empty tags are discarded
 
-Beispiel:
+Example:
 - Input: `" sap, fi , ,co "`
-- Persistiert: `["sap", "fi", "co"]`
+- Persists: `["sap", "fi", "co"]`
 
-## 5.2 Beim `meta-update`-Command
-`set.tags` erwartet bereits eine Liste.
+## 5.2 For the `meta-update` command
+`set.tags` expects a list.
 
-- Keine CSV-Splittung.
-- Elemente müssen Strings sein und dürfen nicht nur aus Whitespace bestehen.
-- Bestehende Inhalte werden nicht automatisch getrimmt/normalisiert.
+- No CSV splitting.
+- Elements must be strings and not just whitespace.
+- Existing content is not automatically trimmed/normalized.
 
 ---
 
-## 6) Body-Datei-Schema
+## 6) Body file schema
 
-- Body liegt als `<task_id>.md` im jeweiligen Statusordner.
-- Inhalt ist UTF-8 Text (Markdown-konventionell, aber nicht strikt validiert).
-- Body ist nicht Teil von `index.json`.
+- Body is located as `<task_id>.md` in the respective status folder.
+- Content is UTF-8 text (Markdown conventional but not strictly validated).
+- Body is not part of `index.json`.

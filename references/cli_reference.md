@@ -1,10 +1,10 @@
-# CLI-Referenz (normativ, v1)
+# CLI reference (normative, v1)
 
-## Inhaltsverzeichnis
-- [1) Globale Konventionen](#1-globale-konventionen)
-- [2) Exit Codes und error.code](#2-exit-codes-und-errorcode)
-- [3) Locking-/Conflict-Semantik](#3-locking--conflict-semantik)
-- [4) Command-Referenz](#4-command-referenz)
+## Table of contents
+- [1) Global Conventions](#1-global-conventions)
+- [2) Exit Codes and error.code](#2-exit-codes-and-errorcode)
+- [3) Locking/conflict semantics](#3-lockingconflict-semantics)
+- [4) Command reference](#4-command-reference)
   - [4.1 init-project](#41-init-project)
   - [4.2 add](#42-add)
   - [4.3 list](#43-list)
@@ -14,11 +14,11 @@
   - [4.7 set-body](#47-set-body)
   - [4.8 integrity-check](#48-integrity-check)
 
-## 1) Globale Konventionen
+## 1) Global conventions
 
-### 1.1 Ausgabeformat
-- `stdout`: immer genau **ein JSON-Objekt**.
-- Fehler sind ebenfalls JSON:
+### 1.1 Output format
+- `stdout`: always exactly **one JSON object**.
+- Errors are also JSON:
 
 ```json
 {
@@ -32,43 +32,43 @@
 ```
 
 ### 1.2 Storage Root
-- `TASK_TRACKING_ROOT` steuert den Root-Pfad.
-- Wenn nicht gesetzt: `${CWD}/.task_tracking`.
-- Wenn gesetzt: Pfad wird absolut aufgelöst.
-- `TASK_TRACKING_ROOT` darf kein `..`-Segment enthalten (sonst `VALIDATION_ERROR`, Exit 2).
+- `TASK_TRACKING_ROOT` controls the root path.
+- If not set: `${CWD}/.task_tracking`.
+- If set: Path is resolved absolutely.
+- `TASK_TRACKING_ROOT` must not contain a `..` segment (otherwise `VALIDATION_ERROR`, exit 2).
 
-### 1.3 ID-/Status-Validierung
-- `project_id`, `task_id`, `status` folgen Regex: `^[A-Za-z0-9_-]+$`.
+### 1.3 ID/Status Validation
+- `project_id`, `task_id`, `status` follow Regex: `^[A-Za-z0-9_-]+$`.
 
-### 1.4 Title-/Task-ID-Regel
-- `title` ist **nur I/O-Repräsentation** von `task_id`:
-  - Input: Spaces werden zu `_` normalisiert.
-  - Output: `_` wird zu Spaces.
-- `title` wird nicht persistent im Index gespeichert.
+### 1.4 Title/task-id rule
+- `title` is **only I/O representation** of `task_id`:
+  - Input: Spaces are normalized to `_`.
+  - Output: `_` becomes Spaces.
+- `title` is not persistently stored in the index.
 
 ---
 
-## 2) Exit Codes und error.code
+## 2) Exit codes and error.code
 
-| Exit | error.code        | Bedeutung |
+| Exit | error.code | Meaning |
 |---:|---|---|
-| 0  | *(kein error-Objekt)* | Erfolg |
-| 2  | `VALIDATION_ERROR` | Ungültige Argumente/Inputs/Schema |
-| 3  | `NOT_FOUND` | Projekt/Task/Datei nicht gefunden |
-| 4  | `CONFLICT` | Konflikt (u. a. Lock aktiv, Duplicate-ID) |
-| 5  | `INTEGRITY_ERROR` | Dateninkonsistenz erkannt |
-| 10 | `UNEXPECTED_ERROR` | Nicht klassifizierter Laufzeitfehler |
+| 0 | *(no error object)* | Success |
+| 2 | `VALIDATION_ERROR` | Invalid arguments/inputs/schema |
+| 3 | `NOT_FOUND` | Project/task/file not found |
+| 4 | `CONFLICT` | Conflict (e.g., active lock, duplicate id) |
+| 5 | `INTEGRITY_ERROR` | Data inconsistency detected |
+| 10 | `UNEXPECTED_ERROR` | Unclassified runtime error |
 
-Hinweis: Agenten können robust auf **beides** prüfen (`exit_code` und `error.code`).
+Note: Agents can robustly check for **both** (`exit_code` and `error.code`).
 
 ---
 
-## 3) Locking-/Conflict-Semantik
+## 3) Locking/conflict semantics
 
-### 3.1 Projekt-Lock
-Die meisten Projektoperationen arbeiten mit exklusivem Lockfile `<project_dir>/.lock`.
+### 3.1 Project Lock
+Most project operations use an exclusive lock file `<project_dir>/.lock`.
 
-- Bei aktivem Lock: `CONFLICT` (Exit 4) mit Details:
+- With active lock: `CONFLICT` (Exit 4) with details:
 
 ```json
 {
@@ -77,16 +77,16 @@ Die meisten Projektoperationen arbeiten mit exklusivem Lockfile `<project_dir>/.
 }
 ```
 
-- Stale-Lock-Recovery: Wenn PID aus dem Lockfile nicht mehr lebt, versucht der Service den Lock zu brechen und neu zu übernehmen.
+- Stale lock recovery: If PID from the lock file is no longer alive, the service tries to break the lock and take over again.
 
-### 3.2 Lock-Verhalten pro Command
-- Immer unter Projekt-Lock: `add`, `list`, `show`, `move`, `meta-update`, `set-body`.
-- `integrity-check --fix`: unter Projekt-Lock.
-- `integrity-check` ohne `--fix`: Checks selbst ohne Full-Lock; falls ein Move-Journal vorliegt, läuft Recovery unter Lock.
+### 3.2 Lock behavior per command
+- Always under project lock: `add`, `list`, `show`, `move`, `meta-update`, `set-body`.
+- `integrity-check --fix`: under project lock.
+- `integrity-check` without `--fix`: checks run without a full lock; if a move journal exists, recovery runs under lock.
 
 ---
 
-## 4) Command-Referenz
+## 4) Command reference
 
 ## 4.1 `init-project`
 
@@ -95,19 +95,19 @@ Die meisten Projektoperationen arbeiten mit exklusivem Lockfile `<project_dir>/.
 task-tracking init-project <project_id> [--statuses <csv>]
 ```
 
-### Optionen
+### Options
 - `project_id` *(required)*
 - `--statuses` *(default: `backlog,open,done`)*
-  - CSV, getrimmt, leere Einträge entfernt
-  - muss nicht leer sein
-  - keine Duplikate
-  - jeder Status muss ID-Regex erfüllen
+  - CSV, trimmed, empty entries removed
+  - must not be empty
+  - no duplicates
+  - each status must satisfy ID regex
 
-### Verhalten
-- Erstellt Projektordner und pro Status einen Ordner mit leerem `index.json`.
-- Wenn Projekt bereits existiert: `CONFLICT` (Exit 4).
+### Behavior
+- Creates project folders and a folder with empty `index.json` for each status.
+- If project already exists: `CONFLICT` (Exit 4).
 
-### Output (Minimalbeispiel)
+### Output (minimal example)
 ```json
 {
   "ok": true,
@@ -134,23 +134,23 @@ task-tracking add <project_id>
 ```
 
 ### Defaults & Constraints
-- `--title` required, String, nach Trim/Kollaps nicht leer.
-- `task_id` wird aus `title` abgeleitet (`spaces -> _`).
-- Title mit `_` ist unzulässig (`Title must use spaces instead of underscores`).
-- Bei explizitem `--task-id`:
-  - muss regex-valid sein,
-  - muss exakt zum normalisierten Titel passen,
-  - darf global im Projekt nicht existieren.
-- Ohne `--task-id`:
-  - auto-generiert aus `title`,
-  - bei Kollision: deterministisch `-2`, `-3`, ...
-- `--status` optional; Default ist der **erste** Status in lexikographisch sortierter Projekt-Statusliste.
-- `--tags`: CSV, split an `,`, trim je Eintrag, leere Einträge verwerfen.
-- `--assignee`: muss String sein.
-- `--priority`: nur `P0..P3`.
-- `--due-date`: ISO-8601 Date oder DateTime.
+- `--title` required, string, not empty after trim/collapse.
+- `task_id` is derived from `title` (`spaces -> _`).
+- Title with `_` is not permitted (`Title must use spaces instead of underscores`).
+- With explicit `--task-id`:
+  - must be regex valid,
+  - must exactly match the normalized title,
+  - must not exist globally in the project.
+- Without `--task-id`:
+  - auto-generated from `title`,
+  - in case of collision: deterministic `-2`, `-3`, ...
+- `--status` optional; Default is the **first** status in the lexicographically sorted project status list.
+- `--tags`: CSV, split to `,`, trim per entry, discard empty entries.
+- `--assignee`: must be string.
+- `--priority`: only `P0..P3`.
+- `--due-date`: ISO-8601 Date or DateTime.
 
-### Output (Minimalbeispiel)
+### Output (minimal example)
 ```json
 {
   "ok": true,
@@ -180,30 +180,30 @@ task-tracking list <project_id>
 ```
 
 ### Defaults & Constraints
-- `limit` default `100`, muss `>0`, max `1000`.
-- `offset` default `0`, muss `>=0`.
+- `limit` default `100`, must be `>0`, max `1000`.
+- `offset` default `0`, must be `>=0`.
 - `sort` default `updated_at`.
-- Sort-Reihenfolge default `desc=true` (wenn weder `--desc` noch `--asc` gesetzt).
-- Zulässige Sort-Felder: `created_at`, `updated_at`, `title`, `priority`, `due_date`.
+- Sort order default `desc=true` (if neither `--desc` nor `--asc` is set).
+- Allowed sort fields: `created_at`, `updated_at`, `title`, `priority`, `due_date`.
 
-### Sortierung (normativ)
-1. Werte mit vorhandenem Sort-Key (`present`) werden sortiert nach `(sort_value, task_id)`.
-2. `--desc`/Default: `present` absteigend; `--asc`: aufsteigend.
-3. Werte ohne Sort-Key (`missing`) kommen **immer zuletzt**, intern nach `task_id` aufsteigend.
-4. Tie-Breaker ist `task_id`.
+### Sorting (normative)
+1. Values with an existing sort key (`present`) are sorted according to `(sort_value, task_id)`.
+2. `--desc`/Default: `present` descending; `--asc`: ascending.
+3. Values without a sort key (`missing`) **always come last**, internally ascending after `task_id`.
+4. Tie breaker is `task_id`.
 
-`due_date` wird für Sortierung als ISO Date/DateTime geparst; nicht parsebare Werte gelten als `missing`.
+`due_date` is parsed for sorting as ISO Date/DateTime; unparseable values are considered `missing`.
 
-### Filter-/Fields-Logik
-- Filter sind exakte Matches:
-  - `tag`: muss in `tags` enthalten sein
-  - `assignee`: exakter Stringmatch
-  - `priority`: exakter Stringmatch
-- Default-Felder ohne `--fields`:
+### Filter/fields logic
+- Filters are exact matches:
+  - `tag`: must be contained in `tags`
+  - `assignee`: exact string match
+  - `priority`: exact string match
+- Default fields without `--fields`:
   - `task_id,status,title,priority,updated_at`
-- Bei `--fields`: nur gewünschte Felder, **aber `task_id` und `status` werden immer ergänzt**.
+- For `--fields`: only desired fields, **but `task_id` and `status` are always added**.
 
-### Output (Minimalbeispiel)
+### Output (minimal example)
 ```json
 {
   "ok": true,
@@ -234,17 +234,17 @@ task-tracking show <project_id> <task_id>
 ```
 
 ### Defaults & Constraints
-- Ohne `--body`: nur Meta.
-- `max-body-chars` und `max-body-lines` müssen `>=0` sein (wenn gesetzt).
+- Without `--body`: only meta.
+- `max-body-chars` and `max-body-lines` must be `>=0` (if set).
 
-### Trunkierungsregeln (normativ)
-Wenn `--body` aktiv ist und beide Limits gesetzt sind:
-1. **zuerst** `max-body-lines`
-2. **danach** `max-body-chars`
+### Truncation rules (normative)
+If `--body` is active and both limits are set:
+1. **first** `max-body-lines`
+2. **after** `max-body-chars`
 
-`body.truncated=true`, sobald mindestens ein Limit gekürzt hat.
+`body.truncated=true` as soon as at least one limit has cut.
 
-### Output (Minimalbeispiel mit Body)
+### Output (minimal example with body)
 ```json
 {
   "ok": true,
@@ -276,19 +276,19 @@ Wenn `--body` aktiv ist und beide Limits gesetzt sind:
 task-tracking move <project_id> <task_id> <new_status>
 ```
 
-### Verhalten
-- Validiert Projekt/Task/Status.
-- Schreibt Move-Journal (`.tx_move.json`).
-- Verschiebt Body-Datei via `os.replace`.
-- Aktualisiert Source-/Target-Index.
-- Setzt `status` auf Zielstatus und `updated_at` auf jetzt.
+### Behavior
+- Validates project/task/status.
+- Writes Move Journal (`.tx_move.json`).
+- Moves body file via `os.replace`.
+- Updates source/target index.
+- Sets `status` to target status and `updated_at` to now.
 
-### Fehlerfälle (Auszug)
-- Zielstatus ungültig: `VALIDATION_ERROR`.
-- Task bereits im Zielstatus: `VALIDATION_ERROR`.
-- Body fehlt / inkonsistenter Indexzustand: `INTEGRITY_ERROR`.
+### Error cases (excerpt)
+- Target status invalid: `VALIDATION_ERROR`.
+- Task already in target status: `VALIDATION_ERROR`.
+- Body missing / inconsistent index state: `INTEGRITY_ERROR`.
 
-### Output (Minimalbeispiel)
+### Output (minimal example)
 ```json
 {
   "ok": true,
@@ -310,9 +310,9 @@ task-tracking meta-update <project_id> <task_id>
   (--patch-json '<json>' | --patch-stdin)
 ```
 
-Genau **eine** Patch-Quelle ist erlaubt.
+Exactly **one** patch source is allowed.
 
-### Patch-Schema (operativ)
+### Patch schema (operational)
 ```json
 {
   "set": {
@@ -325,20 +325,20 @@ Genau **eine** Patch-Quelle ist erlaubt.
 ```
 
 ### Constraints
-- Patch muss JSON-Objekt sein.
-- `set` (falls vorhanden) muss Objekt sein.
-- `unset` (falls vorhanden) muss Liste sein.
-- Nicht patchbar in `set` oder `unset`:
+- Patch must be JSON object.
+- `set` (if present) must be an object.
+- `unset` (if present) must be a list.
+- Not patchable in `set` or `unset`:
   - `task_id`, `created_at`, `updated_at`, `status`, `title`
-- `unset`-Elemente: nur nichtleere Strings.
-- Typregeln bei `set`:
-  - `tags`: Liste nichtleerer Strings
-  - `assignee`: String
+- `unset` elements: non-empty strings only.
+- Type rules for `set`:
+  - `tags`: list of non-empty strings
+  - `assignee`: string
   - `priority`: `P0..P3`
-  - `due_date`: String, ISO-8601 Date/DateTime
-- Löschen erfolgt nur über `unset` (nicht über `null`).
+  - `due_date`: string, ISO-8601 date/date-time
+- Deletion is only performed via `unset` (not via `null`).
 
-### Output (Minimalbeispiel)
+### Output (minimal example)
 ```json
 {
   "ok": true,
@@ -363,12 +363,12 @@ task-tracking set-body <project_id> <task_id>
 ```
 
 ### Constraints
-- Genau **eine** Quelle (`--text` XOR `--file`).
-- Bei `--file`: Datei muss existieren, sonst `NOT_FOUND`.
-- Body wird vollständig ersetzt.
-- `updated_at` wird aktualisiert.
+- Exactly **one** source (`--text` XOR `--file`).
+- For `--file`: file must exist, otherwise `NOT_FOUND`.
+- Body is completely replaced.
+- `updated_at` is updated.
 
-### Output (Minimalbeispiel)
+### Output (minimal example)
 ```json
 {
   "ok": true,
@@ -387,19 +387,19 @@ task-tracking set-body <project_id> <task_id>
 task-tracking integrity-check <project_id> [--fix]
 ```
 
-### Verhalten
-- Prüft Projektkonsistenz über alle Status.
-- Wenn Move-Journal vorhanden: Recovery wird vor Checks versucht (`recovered=true` bei ausgeführter Recovery).
-- Mit `--fix`: konservative Reparaturen (Details in `references/architecture.md`).
+### Behavior
+- Checks project consistency across all statuses.
+- If a move journal is present, recovery is attempted before checks (`recovered=true` when recovery ran).
+- With `--fix`: conservative repairs (details in `references/architecture.md`).
 
-### Return-Felder
-- `ok`: `true`, wenn keine offenen Issues übrig sind.
-- `recovered`: `true`, wenn Journal-Recovery lief.
-- `fixed`: Liste tatsächlich ausgeführter Reparaturen.
-- `issues`: offene (nicht behobene) Probleme.
-- `found`: alle Findings (inkl. der bereits behobenen).
+### Return fields
+- `ok`: `true` if no open issues remain.
+- `recovered`: `true` if journal recovery ran.
+- `fixed`: list of repairs actually performed.
+- `issues`: open (unresolved) issues.
+- `found`: all findings (including already fixed ones).
 
-### Output (Minimalbeispiel)
+### Output (minimal example)
 ```json
 {
   "ok": false,

@@ -1,90 +1,90 @@
-# Architektur: Integrität, Recovery, Journaling (v1)
+# Architecture: Integrity, Recovery, Journaling (v1)
 
-## Inhaltsverzeichnis
-- [1) Datenlayout und Zuständigkeiten](#1-datenlayout-und-zuständigkeiten)
-- [2) Locking-Modell](#2-locking-modell)
-- [3) Move-Journaling und Recovery](#3-move-journaling-und-recovery)
-- [4) `integrity-check`: Ablauf und Datenmodell](#4-integrity-check-ablauf-und-datenmodell)
-- [5) Bedeutung von `--fix` (konservative Repairs)](#5-bedeutung-von---fix-konservative-repairs)
-- [6) Duplicate Resolution (Regel + Fallback)](#6-duplicate-resolution-regel--fallback)
-- [7) Rückgabefelder (`ok`, `recovered`, `fixed`, `issues`, `found`)](#7-rückgabefelder-ok-recovered-fixed-issues-found)
+## Table of contents
+- [1) Data layout and responsibilities](#1-data-layout-and-responsibilities)
+- [2) Locking model](#2-locking-model)
+- [3) Move journaling and recovery](#3-move-journaling-and-recovery)
+- [4) `integrity-check`: Process and data model](#4-integrity-check-process-and-data-model)
+- [5) Meaning of `--fix` (conservative repairs)](#5-meaning-of---fix-conservative-repairs)
+- [6) Duplicate resolution (rule + fallback)](#6-duplicate-resolution-rule--fallback)
+- [7) Return fields (`ok`, `recovered`, `fixed`, `issues`, `found`)](#7-return-fields-ok-recovered-fixed-issues-found)
 
-## 1) Datenlayout und Zuständigkeiten
+## 1) Data layout and responsibilities
 
-Pro Projekt:
-- `<project>/<status>/index.json` (Task-Metadaten je Status)
-- `<project>/<status>/<task_id>.md` (Body-Datei)
-- `<project>/.lock` (exklusiver Projekt-Lock)
-- `<project>/.tx_move.json` (Move-Transaktionsjournal)
+Per project:
+- `<project>/<status>/index.json` (Task metadata by status)
+- `<project>/<status>/<task_id>.md` (Body file)
+- `<project>/.lock` (exclusive project lock)
+- `<project>/.tx_move.json` (move transaction journal)
 
-Module:
-- `service.py`: Domänenlogik, Integritätsprüfung, Recovery.
-- `storage.py`: atomare Writes, Locking, Root-Schutz.
-- `validators.py`: Input-/Schema-Validierung.
-
----
-
-## 2) Locking-Modell
-
-`ProjectLock` nutzt ein exklusives Lockfile (`O_CREAT|O_EXCL`).
-
-- Aktiver Lock → `CONFLICT` (Exit 4), `details.reason = "LOCKED"`.
-- Stale Lock (PID nicht mehr aktiv) wird best-effort entfernt und neu übernommen.
-- Schlägt stale-Recovery fehl, bleibt es bei `CONFLICT`.
-
-Wesentlich: mutierende Operationen arbeiten unter Lock; so werden konkurrierende Writer verhindert.
+Modules:
+- `service.py`: Domain logic, integrity check, recovery.
+- `storage.py`: atomic writes, locking, root protection.
+- `validators.py`: Input/schema validation.
 
 ---
 
-## 3) Move-Journaling und Recovery
+## 2) Locking model
 
-## 3.1 Journal-Datei
-Vor einem `move` schreibt der Service `.tx_move.json` mit:
+`ProjectLock` uses an exclusive lock file (`O_CREAT|O_EXCL`).
+
+- Activate Lock → `CONFLICT` (Exit 4), `details.reason = "LOCKED"`.
+- Stale Lock (PID no longer active) is removed and reapplied with best effort.
+- If stale recovery fails, it remains at `CONFLICT`.
+
+Essential: mutating operations run under a lock; this prevents competing writers.
+
+---
+
+## 3) Move journaling and recovery
+
+## 3.1 Journal file
+Before a `move` the service writes `.tx_move.json`:
 - `op: "move"`
 - `task_id`
 - `from`
 - `to`
-- `updated_meta` (geplante Ziel-Metadaten)
+- `updated_meta` (planned target metadata)
 
-## 3.2 Warum Journal?
-Bei Crash/Abbruch zwischen Body-Move und Index-Update könnte ein Teilzustand entstehen.
-Das Journal macht diesen Zustand deterministisch recoverbar.
+## 3.2 Why Journal?
+In the event of a crash/abort between body move and index update, a partial state could arise.
+The journal makes this state deterministically recoverable.
 
-## 3.3 Recovery-Trigger
-Recovery läuft, wenn `.tx_move.json` existiert:
-- vor Integritäts-Operationen,
-- über `integrity-check`,
-- sowie in anderen Workflows, die Integrität sicherstellen.
+## 3.3 Recovery trigger
+Recovery runs when `.tx_move.json` exists:
+- before integrity operations,
+- via `integrity-check`,
+- as well as in other workflows that ensure integrity.
 
-## 3.4 Recovery-Logik (vereinfacht)
-1. Journal validieren (`op`, Felder, IDs/Status).
-2. Quell-/Zielindex und Body-Existenz prüfen.
-3. Konsistente Endzustände erkennen:
-   - bereits vollständig Quelle **oder** vollständig Ziel → Journal löschen.
-4. Inkonsistente Zwischenzustände reparieren:
-   - wenn Body bereits im Ziel: Quellindex bereinigen, Zielindex finalisieren.
-   - wenn Body noch in Quelle: Body verschieben, Indizes finalisieren.
-5. Bei unauflösbarem Zustand: `INTEGRITY_ERROR`.
+## 3.4 Recovery logic (simplified)
+1. Validate journal (`op`, fields, IDs/status).
+2. Check source/destination index and body existence.
+3. Recognize consistent end states:
+   - already complete source **or** complete target → delete journal.
+4. Repair inconsistent intermediate states:
+   - if body already in target: clean source index, finalize target index.
+   - if body is still in source: move body, finalize indices.
+5. If the state is not resolvable: `INTEGRITY_ERROR`.
 
 ---
 
-## 4) `integrity-check`: Ablauf und Datenmodell
+## 4) `integrity-check`: Process and data model
 
-## 4.1 Ablauf (ohne `--fix`)
-1. Projektstatus-Verzeichnisse laden.
-2. Indizes je Status lesen.
-3. Findings sammeln (`found`).
-4. Nicht behobene Findings in `issues` aufnehmen.
+## 4.1 Process (without `--fix`)
+1. Load project status directories.
+2. Read indices per status.
+3. Collect findings (`found`).
+4. Include unresolved findings in `issues`.
 5. `ok = (len(issues) == 0)`.
 
-## 4.2 Ablauf (mit `--fix`)
-Zusätzlich zu oben:
-- konservative Reparaturen durchführen,
-- Reparaturaktionen in `fixed` protokollieren,
-- verbleibende Probleme weiterhin in `issues` belassen.
+## 4.2 Process (with `--fix`)
+In addition to above:
+- carry out conservative repairs,
+- log repair actions in `fixed`,
+- leave remaining problems in `issues`.
 
-## 4.3 Interne Check-Klassen (aus Code)
-Typische `found`/`issues`-Typen:
+## 4.3 Internal check classes (from code)
+Typical `found`/`issues` types:
 - `INDEX_ERROR`
 - `DUPLICATE_TASK`
 - `STATUS_DIR_MISSING`
@@ -98,64 +98,64 @@ Typische `found`/`issues`-Typen:
 
 ---
 
-## 5) Bedeutung von `--fix` (konservative Repairs)
+## 5) Meaning of `--fix` (conservative repairs)
 
-`--fix` repariert nur klar ableitbare, risikoarme Fälle:
+`--fix` only repairs clearly deducible, low-risk cases:
 
-1. **Fehlende Index-Datei** (`INDEX_ERROR` + missing file)
-   - erstellt leeren Index.
+1. **Missing index file** (`INDEX_ERROR` + missing file)
+   - creates empty index.
    - `fixed`: `INDEX_CREATED`.
 
-2. **Meta ist kein Objekt** (`META_NOT_OBJECT`)
-   - ersetzt durch Minimal-Meta (`task_id`, `status`, `created_at`, `updated_at`).
+2. **Meta is not an object** (`META_NOT_OBJECT`)
+   - replaced by minimal meta (`task_id`, `status`, `created_at`, `updated_at`).
    - `fixed`: `META_REPLACED`.
 
-3. **Pflichtfelder fehlen** (`MISSING_FIELD`)
-   - ergänzt fehlende Felder:
-     - `task_id` = Index-Key,
-     - `status` = Statusordner,
+3. **Required fields are missing** (`MISSING_FIELD`)
+   - adds missing fields:
+     - `task_id` = index key,
+     - `status` = status folder,
      - `created_at`/`updated_at` = `now`.
    - `fixed`: `FIELD_FILLED`.
 
-4. **`meta.task_id` oder `meta.status` inkonsistent**
-   - korrigiert auf kanonische Werte.
+4. **`meta.task_id` or `meta.status` inconsistent**
+   - corrected to canonical values.
    - `fixed`: `TASK_ID_FIXED`, `STATUS_FIXED`.
 
-5. **Leere/fehlende Body-Datei** (`MISSING_BODY`)
-   - erzeugt leere `<task_id>.md`.
+5. **Empty/missing body file** (`MISSING_BODY`)
+   - produces empty `<task_id>.md`.
    - `fixed`: `BODY_CREATED`.
 
 6. **Orphan Body** (`ORPHAN_BODY`)
-   - erzeugt Indexeintrag nur dann, wenn `task_id` nicht bereits in einem anderen Status existiert.
+   - creates index entry only if `task_id` does not already exist in another status.
    - `fixed`: `ORPHAN_INDEX_CREATED`.
 
-7. **Duplikate über Status** (`DUPLICATE_TASK`)
-   - wählt Winner (siehe Abschnitt 6), entfernt andere Indexeinträge.
+7. **Duplicates across statuses** (`DUPLICATE_TASK`)
+   - selects a winner (see section 6), removes other index entries.
    - `fixed`: `DUPLICATE_RESOLVED`.
-   - falls Winner-Body fehlt und ein loser Duplicate-Body existiert:
-     - Body wird zum Winner verschoben.
+   - if the winner body is missing and a loose duplicate body exists:
+     - Body is moved to the winner.
      - `fixed`: `BODY_MOVED_FROM_DUPLICATE`.
 
-Nicht eindeutig behebbare Fälle bleiben in `issues`.
+Cases that cannot be clearly remedied remain in `issues`.
 
 ---
 
-## 6) Duplicate Resolution (Regel + Fallback)
+## 6) Duplicate resolution (rule + fallback)
 
-Wenn eine `task_id` in mehreren Statusindizes vorkommt:
+If a `task_id` occurs in multiple status indices:
 
-1. Primärregel: **neuester `updated_at` gewinnt**.
-2. Falls kein parsebares `updated_at` verfügbar:
-   - Fallback: **Statusreihenfolge des Projekts** (lexikographisch sortierte Statusnamen; erster Treffer gewinnt).
-3. Letzter Fallback: erste gefundene Statuszuordnung.
+1. Primary rule: **newest `updated_at` wins**.
+2. If no parseable `updated_at` is available:
+   - Fallback: **Project status order** (lexicographically sorted status names; first hit wins).
+3. Last fallback: first status mapping found.
 
-Diese Regeln sind deterministisch und reproduzierbar.
+These rules are deterministic and reproducible.
 
 ---
 
-## 7) Rückgabefelder (`ok`, `recovered`, `fixed`, `issues`, `found`)
+## 7) Return fields (`ok`, `recovered`, `fixed`, `issues`, `found`)
 
-`integrity-check` liefert immer:
+`integrity-check` always returns:
 
 ```json
 {
@@ -168,9 +168,9 @@ Diese Regeln sind deterministisch und reproduzierbar.
 }
 ```
 
-Semantik:
-- `found`: alle gefundenen Probleme (unabhängig davon, ob behoben).
-- `fixed`: nur tatsächlich durchgeführte Reparaturen.
-- `issues`: verbleibende, offene Probleme nach optionalem Fix.
-- `recovered`: `true`, wenn Move-Journal-Recovery in diesem Lauf ausgeführt wurde.
-- `ok`: genau dann `true`, wenn `issues` leer ist; sonst `false`.
+Semantics:
+- `found`: all problems found (regardless of whether fixed).
+- `fixed`: only repairs actually carried out.
+- `issues`: remaining open issues after optional fix.
+- `recovered`: `true` if move-journal recovery was performed in this run.
+- `ok`: if and only if `issues` is empty; otherwise `false`.

@@ -1,42 +1,42 @@
-# Task-Tracking (Option 1, v1) – Ziel, Scope, Konzept (Entwickler)
+# Task Tracking (Option 1, v1) – Goal, Scope, Concept (Developer)
 
-> Architektur-/Scope-Referenz für den registrierten Skill `task-tracking` (Implementierung unter `scripts/`).
+> Architecture/Scope reference for registered skill `task-tracking` (implementation under `scripts/`).
 
-## 0. Ziel & Scope (v1)
-**Ziel:** Ein lokales, dateisystembasiertes Task‑Tracking für mehrere Projekte. Alle Mutationen laufen deterministisch über eine Python‑CLI. **Kein Netzwerkzugriff.**
+## 0. Target & Scope (v1)
+**Aim:** Local, file system-based task tracking for multiple projects. All mutations run deterministically via a Python CLI. **No network access.**
 
 **In Scope (v1):**
-- Projekt initialisieren
-- Task anlegen
-- Tasks listen (filterbar, limitiert)
-- Task anzeigen (Meta standardmäßig; Body opt‑in, begrenzt)
-- Task in anderen Status verschieben (atomar)
-- Metadaten aktualisieren (robust, patch‑orientiert)
-- Body setzen/ersetzen (Text oder Datei)
+- Project initialization
+- Create task
+- List tasks (filterable, limited)
+- Show task (meta default; body opt‑in, limited)
+- Move task to different state (atomic)
+- Update metadata (robust, patch-oriented)
+- Set/replace body (text or file)
 
 **Out of Scope (v1):**
 - Delete/Archive
-- Remote/SaaS‑Integrationen, Sync, Notifications, Kalender
-- Automatische Statusübergänge
+- Remote/SaaS integration, Sync, Notifications, Calendar
+- Automatic status transitions
 - Reporting/Exports
-- Human‑Output (Tabellen o. ä.) – **v1 liefert nur JSON auf stdout**
+- Human output (tables or similar) – **v1 only returns JSON on stdout**
 
-## 1. Terminologie
-- **Project:** Sammlung von Tasks unter `project_id`.
-- **Status:** Zustand eines Tasks (konfiguriertes Set; Default z. B. `backlog`, `open`, `done`).
-- **Task:** besteht aus **Body** (`{task_id}.md`) und **Metadata** (Eintrag in `index.json` des jeweiligen Status‑Ordners).
+## 1. Terminology
+- **Project:** Collection of tasks under `project_id`.
+- **Status:** State of a task (configured set; default e.g. `backlog`, `open`, `done`).
+- **Task:** consists of **Body** (`{task_id}.md`) and **Metadata** (entry in `index.json` of the respective status folder).
 
-## 2. Konfiguration & Pfadregeln
-- **Root (OpenClaw empfohlen):** `TASK_TRACKING_ROOT=.task-tracking` (relativ zum Workspace-CWD, effektiv `<workspace>/.task-tracking`).
-- **Fallback der CLI:** falls `TASK_TRACKING_ROOT` nicht gesetzt ist, `${CWD}/.task_tracking`.
-- **Sicherheitsregel:** Niemals außerhalb des Roots lesen/schreiben (Path‑Traversal verhindern).
-- **Identifikatoren:** `project_id` und `task_id` müssen `^[A-Za-z0-9_-]+$` matchen. Keine Separatoren, kein `..`, keine Leerzeichen.
-  - Anzeige: `_` darf zu Space gemappt werden; intern bleibt die ID unverändert.
-- **Statusnamen:** ebenfalls `^[A-Za-z0-9_-]+$`.
-  - v1 Default‑Statusliste beim Init (z. B. `backlog,open,done`).
-  - Statusliste wird **immer** aus den vorhandenen Statusordnern abgeleitet.
+## 2. Configuration & Path Rules
+- **Root (OpenClaw recommended):** `TASK_TRACKING_ROOT=.task-tracking` (relative to workspace CWD, effective `<workspace>/.task-tracking`).
+- **Fallback of CLI:** if `TASK_TRACKING_ROOT` is not set, `${CWD}/.task_tracking`.
+- **Safety rule:** Never read/write outside root (prevent path traversal).
+- **Identifiers:** `project_id` and `task_id` must match `^[A-Za-z0-9_-]+$`. No separators, no `..`, no spaces.
+  - Display: `_` can be mapped to Space; internally the ID remains unchanged.
+- **Status names:** also `^[A-Za-z0-9_-]+$`.
+  - v1 default status list at initialization (e.g. `backlog,open,done`).
+  - Status list is **always** derived from the existing status folders.
 
-## 3. Kanonisches Layout (Kurzüberblick)
+## 3. Canonical Layout (Quick Overview)
 ```
 <TASK_TRACKING_ROOT>/
   <project_id>/
@@ -50,12 +50,12 @@
       index.json
       <task_id>.md
 ```
-**Regel:** pro Statusordner existiert genau **ein** `index.json`, das alle Metadaten in diesem Status hält.
+**Rule:** per status folder there is exactly **one** `index.json` that holds all metadata in this status.
 
-## 4. Nichtfunktionale Anforderungen
-- **Portabilität:** Python 3.10+, Windows/Linux/macOS.
-- **Determinismus:** stabile JSON‑Strukturen, stabile Sortierlogik.
-- **Performance:** `list` muss über Statusfilter/Limit steuerbar bleiben.
-- **Fehlerrobustheit:** Validierungsfehler liefern strukturierte JSON‑Fehlerobjekte; keine Stacktraces in stdout.
+## 4. Non-functional requirements
+- **Portability:** Python 3.10+, Windows/Linux/macOS.
+- **Determinism:** stable JSON structures, stable sorting logic.
+- **Performance:** `list` must remain controllable via status filter/limit.
+- **Error robustness:** Validation errors provide structured JSON error objects; no stack traces in stdout.
 
-Weiteres Detail: siehe `filesystem_layout.md`, `metadata_schema.md`, `cli_reference.md`, `architecture.md`.
+Further detail: see `filesystem_layout.md`, `metadata_schema.md`, `cli_reference.md`, `architecture.md`.

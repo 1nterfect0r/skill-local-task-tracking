@@ -1,21 +1,21 @@
-# Task‑Tracking v1 — Testplan (strukturiert)
+# Task Tracking v1 — Test Plan (Structured)
 
-> Ziel: systematisch alle CLI‑Funktionen, Fehlerfälle, Recovery und `integrity-check --fix` prüfen.
-> Alle Ausgaben sind **JSON** (stdout). Erwartete Exit Codes siehe unten.
+> Goal: systematically check all CLI functions, error cases, recovery and `integrity-check --fix`.
+> All output is **JSON** (stdout). Expected exit codes see below.
 
 ---
 
-## 0) Voraussetzungen / Setup
+## 0) Requirements / Setup
 
-**Optionaler Test-Runner (Core + Regression + Edge):**
+**Optional test runner (Core + Regression + Edge):**
 ```bash
 bash /home/hanneskuhl/.openclaw/skills/task-tracking/references/test_runner.sh
 ```
-Logfile wird im Ordner `/home/hanneskuhl/.openclaw/workspace/tmp/` abgelegt.
+Log file is stored in the `/home/hanneskuhl/.openclaw/workspace/tmp/` folder.
 
-**Storage location (workspace, empfohlen):**
-- Setze `TASK_TRACKING_ROOT=.task-tracking`
-- Relative Auflösung durch OpenClaw-Workspace-CWD:
+**Storage location (workspace, recommended):**
+- Set `TASK_TRACKING_ROOT=.task-tracking`
+- Relative resolution via the OpenClaw workspace CWD:
   - `<workspace>/.task-tracking`
 
 **`openclaw.json` (Best Practice):**
@@ -34,7 +34,7 @@ Logfile wird im Ordner `/home/hanneskuhl/.openclaw/workspace/tmp/` abgelegt.
 }
 ```
 
-**Env & Root (für diesen Testplan, isoliert):**
+**Env & Root (for this test plan, isolated):**
 ```bash
 export TASK_TRACKING_ROOT=/tmp/tt-root
 baseDir=/home/hanneskuhl/.openclaw/skills/task-tracking
@@ -42,10 +42,10 @@ baseDir=/home/hanneskuhl/.openclaw/skills/task-tracking
 rm -rf /tmp/tt-root
 ```
 
-**Konventionen:**
-- `<ISO>` = beliebiger ISO‑8601 UTC Zeitstempel
+**Conventions:**
+- `<ISO>` = any ISO‑8601 UTC timestamp
 - `<ROOT>` = `/tmp/tt-root`
-- Status‑Reihenfolge: `backlog,open,done`
+- Status order: `backlog,open,done`
 
 **Exit Codes:**
 - `0` OK
@@ -314,9 +314,9 @@ python3 {baseDir}/scripts/task_tracking.py integrity-check acme-s4
 python3 {baseDir}/scripts/task_tracking.py integrity-check acme-s4 --fix
 ```
 **Expected Fixes (A,1):**
-- **Duplikate:** behält Eintrag mit **neuestem `updated_at`**, entfernt den älteren aus anderen Status.
-- **orphan‑Body:** erzeugt Indexeintrag mit Minimal‑Meta (falls ID sonst nirgends existiert).
-- **Missing Body:** erstellt leere `.md`.
+- **Duplicates:** keeps entry with **latest `updated_at`**, removes older one from other states.
+- **orphan‑Body:** creates index entry with minimal meta (if ID does not exist anywhere else).
+- **Missing Body:** creates empty `.md`.
 
 **Expected JSON (shape)**
 ```json
@@ -324,26 +324,26 @@ python3 {baseDir}/scripts/task_tracking.py integrity-check acme-s4 --fix
 ```
 **Note:** `ok` is **true** if all issues were resolved by `--fix`. `issues` contains only unresolved problems; `found` contains all detected issues.
 **Expected FS after fix**
-- Duplikate reduziert auf einen Status.
-- orphan hat jetzt Index‑Eintrag.
-- Fehlende Body‑Files existieren wieder.
+- Duplicates reduced to one status.
+- orphan now has an index entry.
+- Missing body files exist again.
 
 ---
 
 ## 10) Recovery / Journal (`.tx_move.json`)
 
-### 10.1 Simulierter Crash
-**Setup (manuell):**
-- Erzeuge `.tx_move.json` mit gültigem Inhalt (op=move, task_id, from, to, updated_meta)
-- Verschiebe den Body in Zielstatus, **ohne** Index‑Update
+### 10.1 Simulated Crash
+**Setup (manual):**
+- Create `.tx_move.json` with valid content (`op=move`, `task_id`, `from`, `to`, `updated_meta`)
+- Move the body to target state, **without** index update
 
 **Action**
-- `list` oder `show` aufrufen (lösen Recovery aus)
+- Call `list` or `show` (triggers recovery)
 
 **Expected:**
-- Journal wird aufgelöst
-- Body + Index konsistent
-- `.tx_move.json` entfernt
+- Journal is cleared
+- Body + Index consistent
+- `.tx_move.json` removed
 
 ---
 
@@ -359,7 +359,7 @@ echo '{"pid":999999}' > <ROOT>/acme-s4/.lock
 python3 {baseDir}/scripts/task_tracking.py add acme-s4 --title "Lock test"
 ```
 **Expected:**
-- Lock wird erkannt als stale → Operation gelingt
+- Lock is recognized as stale → operation succeeds
 
 ---
 
@@ -371,11 +371,11 @@ python3 {baseDir}/scripts/task_tracking.py add acme-s4 --title "Lock test"
 - Invalid `--sort` → `VALIDATION_ERROR`
 - `--limit <= 0` or `--offset < 0` → `VALIDATION_ERROR`
 - `--limit > 1000` → `VALIDATION_ERROR`
-- `TASK_TRACKING_ROOT` enthält `..`-Segment(e) → `VALIDATION_ERROR`
+- `TASK_TRACKING_ROOT` contains `..` segment(s) → `VALIDATION_ERROR`
 
 ---
 
-## 13) Determinismus / JSON Shape
+## 13) Determinism / JSON Shape
 
 - JSON keys stabil (best effort). Compare only required keys & types.
 - Timestamps: ISO‑8601 UTC strings.
@@ -445,7 +445,7 @@ python3 {baseDir}/scripts/task_tracking.py init-project local-test
 ```
 <CWD>/.task_tracking/local-test/...
 ```
-**Hinweis:** Für OpenClaw produktiv weiterhin `TASK_TRACKING_ROOT=.task-tracking` verwenden (Workspace-lokal).
+**Note:** For OpenClaw productive, continue to use `TASK_TRACKING_ROOT=.task-tracking` (workspace-local).
 
 ### 14.7 Active Lock (non‑stale)
 **Setup**
@@ -599,13 +599,13 @@ python3 {baseDir}/scripts/task_tracking.py list acme-s4 --limit 1
 ```
 **Expected:** `INTEGRITY_ERROR` (exit 5) with `Invalid transaction status`.
 
-### 15.14 `list --sort due_date` mit invalidem `due_date`
-**Setup (manuell):** setze in `index.json` eines Tasks `due_date` auf einen ungültigen String.
+### 15.14 `list --sort due_date` with invalid `due_date`
+**Setup (manual):** set `due_date` to an invalid string in `index.json` of a task.
 **Command**
 ```bash
 python3 {baseDir}/scripts/task_tracking.py list acme-s4 --sort due_date --asc --limit 10
 ```
-**Expected:** kein Crash; Einträge mit invalidem `due_date` werden wie „fehlend“ behandelt (am Ende der Liste). **Wichtig:** Stelle sicher, dass keine offenen Integrity‑Issues existieren, sonst kann `list` mit `INTEGRITY_ERROR` abbrechen (Auto‑Fix blockiert bei unlösbaren Problemen).
+**Expected:** no crash; entries with invalid `due_date` are treated as "missing" (at the end of the list). **Important:** make sure there are no open integrity issues, otherwise `list` can abort with `INTEGRITY_ERROR` (auto-fix blocks when problems are not resolvable).
 
 ---
 
@@ -689,22 +689,22 @@ python3 {baseDir}/scripts/task_tracking.py meta-update acme-s4 task_a --patch-js
 **Expected:** `VALIDATION_ERROR` (exit 2)
 
 ### 18.7 `list` auto-repairs non-object meta via preflight fix
-**Setup (manuell):** setze einen Index‑Eintrag auf einen String statt Objekt.
+**Setup (manual):** set an index entry to a string instead of an object.
 **Command**
 ```bash
 python3 {baseDir}/scripts/task_tracking.py list acme-s4 --limit 10
 ```
-**Expected:** kein Crash; Preflight `integrity-check --fix` ersetzt den fehlerhaften Meta-Eintrag durch Minimal-Meta (`META_REPLACED`). Der Task kann danach in `items` erscheinen.
+**Expected:** no crash; Preflight `integrity-check --fix` replaces the incorrect meta entry with minimal meta (`META_REPLACED`). The task can then appear in `items`.
 
-### 18.8 `integrity-check` ohne Index keine orphan‑Flut
-**Setup (manuell):** lösche `<ROOT>/<project>/<status>/index.json` und lege ein paar `*.md` Bodies an.
+### 18.8 `integrity-check` no orphan flood without index
+**Setup (manual):** delete `<ROOT>/<project>/<status>/index.json` and create a few `*.md` bodies.
 **Command**
 ```bash
 python3 {baseDir}/scripts/task_tracking.py integrity-check acme-s4
 ```
-**Expected:** `INDEX_ERROR` für den Status; **keine** `ORPHAN_BODY` Meldungen für denselben Status.
+**Expected:** `INDEX_ERROR` for status; **no** `ORPHAN_BODY` messages for the same status.
 
-### 18.9 Guard: `TASK_TRACKING_ROOT` darf kein `..` enthalten
+### 18.9 Guard: `TASK_TRACKING_ROOT` cannot contain `..`
 **Command**
 ```bash
 TASK_TRACKING_ROOT=../escape python3 {baseDir}/scripts/task_tracking.py list acme-s4 --limit 1
