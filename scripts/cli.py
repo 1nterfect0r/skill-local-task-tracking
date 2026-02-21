@@ -39,6 +39,7 @@ def main(argv=None):
     p_list.add_argument("--tag")
     p_list.add_argument("--assignee")
     p_list.add_argument("--priority")
+    p_list.add_argument("--filter-mode", choices=["and", "or"], default="and")
     p_list.add_argument("--fields")
     p_list.add_argument("--limit", type=int, default=100)
     p_list.add_argument("--offset", type=int, default=0)
@@ -107,6 +108,7 @@ def main(argv=None):
                 tag=args.tag,
                 assignee=args.assignee,
                 priority=args.priority,
+                filter_mode=args.filter_mode,
                 fields=args.fields,
                 limit=args.limit,
                 offset=args.offset,

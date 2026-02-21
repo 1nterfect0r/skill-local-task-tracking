@@ -179,6 +179,7 @@ task-tracking list <project_id>
   [--tag <tag>]
   [--assignee <assignee>]
   [--priority P0|P1|P2|P3]
+  [--filter-mode and|or]
   [--fields f1,f2,...]
   [--limit <int>]
   [--offset <int>]
@@ -190,6 +191,7 @@ task-tracking list <project_id>
 - `limit` default `100`, must be `>0`, max `1000`.
 - `offset` default `0`, must be `>=0`.
 - `sort` default `updated_at`.
+- `filter-mode` default `and`; allowed values: `and`, `or`.
 - Sort order default `desc=true` (if neither `--desc` nor `--asc` is set).
 - Allowed sort fields: `created_at`, `updated_at`, `priority`, `due_date`.
 
@@ -206,6 +208,10 @@ task-tracking list <project_id>
   - `tag`: must be contained in `tags`
   - `assignee`: exact string match
   - `priority`: exact string match
+- `filter-mode` controls how active filters are combined:
+  - `and` (default): all active filters must match
+  - `or`: at least one active filter must match
+- If none of `tag/assignee/priority` is provided, no value filter is applied.
 - Default fields without `--fields`:
   - `task_id,status,priority,updated_at`
 - For `--fields`: only desired fields, **but `task_id` and `status` are always added**.
@@ -218,6 +224,7 @@ task-tracking list <project_id>
   "ok": true,
   "project_id": "acme-s4",
   "count": 2,
+  "count_total": 5,
   "items": [
     {
       "task_id": "fix_posting_logic",
@@ -228,6 +235,8 @@ task-tracking list <project_id>
   ]
 }
 ```
+- `count`: number of returned items after `offset/limit`.
+- `count_total`: number of matched items before pagination.
 
 ---
 

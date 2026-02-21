@@ -149,11 +149,12 @@ python3 {baseDir}/scripts/task_tracking.py list acme-s4 --limit 100 --sort updat
 ```
 **Expected JSON (shape)**
 ```json
-{ "ok": true, "project_id": "acme-s4", "count": 3, "items": [ {"task_id":"...","status":"...","priority":null,"updated_at":"<ISO>"}, ... ] }
+{ "ok": true, "project_id": "acme-s4", "count": 3, "count_total": 3, "items": [ {"task_id":"...","status":"...","priority":null,"updated_at":"<ISO>"}, ... ] }
 ```
 **Expected Behavior**
 - Sorted by `updated_at` desc.
 - Fields default to `task_id,status,priority,updated_at`.
+- `count` is post-pagination; `count_total` is pre-pagination.
 
 ### 3.2 Filters & fields
 **Command**
@@ -169,7 +170,28 @@ python3 {baseDir}/scripts/task_tracking.py list acme-s4 --status open --fields t
 python3 {baseDir}/scripts/task_tracking.py list acme-s4 --limit 1 --offset 1
 ```
 **Expected JSON**
-- Exactly 1 item returned.
+- Exactly 1 item returned (`count=1`).
+- `count_total` remains the full match count (before pagination).
+
+### 3.4 Filter combination with `--filter-mode and`
+**Setup hint:** Ensure at least one task matches both filters and at least one task matches only one filter.
+
+**Command**
+```bash
+python3 {baseDir}/scripts/task_tracking.py list acme-s4 --tag sap --assignee hannes --filter-mode and --limit 100
+```
+**Expected JSON**
+- Only tasks that satisfy **both** filters are returned.
+- `assignee` matching is exact (case-sensitive).
+
+### 3.5 Filter combination with `--filter-mode or`
+**Command**
+```bash
+python3 {baseDir}/scripts/task_tracking.py list acme-s4 --tag sap --assignee hannes --filter-mode or --limit 100
+```
+**Expected JSON**
+- Tasks that satisfy **at least one** of the filters are returned.
+- Result count is typically greater than or equal to the `and` variant.
 
 ---
 
@@ -370,6 +392,7 @@ python3 {baseDir}/scripts/task_tracking.py add acme-s4 --task-id lock_test
 - Non‑existent project → `NOT_FOUND`
 - Non‑existent task → `NOT_FOUND`
 - Invalid `--sort` → `VALIDATION_ERROR`
+- Invalid `--filter-mode` → `VALIDATION_ERROR`
 - `--limit <= 0` or `--offset < 0` → `VALIDATION_ERROR`
 - `--limit > 1000` → `VALIDATION_ERROR`
 - `TASK_TRACKING_ROOT` contains `..` segment(s) → `VALIDATION_ERROR`
@@ -470,12 +493,18 @@ python3 {baseDir}/scripts/task_tracking.py add acme-s4 --task-id lock_active
 - Mismatch `task_id` inside meta → `TASK_ID_MISMATCH`
 - (Optional legacy-data check) Inject extra unknown fields in `meta` and verify they do not break commands
 - Remove required fields (`created_at`, etc.) → `MISSING_FIELD`
+- Corrupt known field types:
+  - `tags` not list/non-empty strings → `TAGS_INVALID`
+  - `assignee` non-string → `ASSIGNEE_INVALID`
+  - invalid `priority` value/type → `PRIORITY_INVALID`
+  - invalid `due_date` value/type → `DUE_DATE_INVALID`
+  - `created_at` / `updated_at` non-string → `FIELD_TYPE_INVALID`
 - Remove a status directory → `STATUS_DIR_MISSING`
 **Command**
 ```bash
 python3 {baseDir}/scripts/task_tracking.py integrity-check acme-s4 --fix
 ```
-**Expected:** issues reported; fixes applied where possible (e.g., `META_REPLACED`, `TASK_ID_FIXED`, `FIELD_FILLED`).
+**Expected:** issues reported; fixes applied where possible (e.g., `META_REPLACED`, `TASK_ID_FIXED`, `FIELD_FILLED`, `TAGS_NORMALIZED`, `ASSIGNEE_REMOVED`, `PRIORITY_REMOVED`, `DUE_DATE_REMOVED`, `FIELD_TYPE_FIXED`).
 
 ### 14.9 Duplicate resolution without `updated_at`
 **Setup:** create duplicate task in multiple statuses **without** `updated_at`.
@@ -484,6 +513,23 @@ python3 {baseDir}/scripts/task_tracking.py integrity-check acme-s4 --fix
 python3 {baseDir}/scripts/task_tracking.py integrity-check acme-s4 --fix
 ```
 **Expected:** winner chosen by project status order (`rule: status_order`).
+
+### 14.10 `list` filter mode semantics (`and` vs `or`)
+**Setup:**
+- Task A matches only `tag=sap`
+- Task B matches only `assignee=hannes`
+- Task C matches both
+
+**Commands**
+```bash
+python3 {baseDir}/scripts/task_tracking.py list acme-s4 --tag sap --assignee hannes --filter-mode and --limit 100
+python3 {baseDir}/scripts/task_tracking.py list acme-s4 --tag sap --assignee hannes --filter-mode or --limit 100
+python3 {baseDir}/scripts/task_tracking.py list acme-s4 --tag sap --assignee hannes --limit 100
+```
+**Expected:**
+- `and` returns only Task C
+- `or` returns A, B, C
+- Omitted `--filter-mode` behaves like `and`
 
 ---
 
@@ -608,6 +654,26 @@ python3 {baseDir}/scripts/task_tracking.py list acme-s4 --limit 1
 python3 {baseDir}/scripts/task_tracking.py list acme-s4 --sort due_date --asc --limit 10
 ```
 **Expected:** no crash; entries with invalid `due_date` are treated as "missing" (at the end of the list). **Important:** make sure there are no open integrity issues, otherwise `list` can abort with `INTEGRITY_ERROR` (auto-fix blocks when problems are not resolvable).
+
+### 15.15 `list --sort due_date` with non-string `due_date`
+**Setup (manual):** set `due_date` to a non-string value (e.g., number) in `index.json`.
+**Command**
+```bash
+python3 {baseDir}/scripts/task_tracking.py list acme-s4 --sort due_date --asc --limit 10
+```
+**Expected:** no crash; malformed `due_date` values are treated as "missing".
+
+### 15.16 `list` with malformed `tags` under filter mode
+**Setup (manual):** set `tags` of a task to a non-list value in `index.json` (e.g., `123`).
+**Commands**
+```bash
+python3 {baseDir}/scripts/task_tracking.py list acme-s4 --tag sap --assignee hannes --filter-mode or --limit 100
+python3 {baseDir}/scripts/task_tracking.py list acme-s4 --tag sap --filter-mode and --limit 100
+```
+**Expected:**
+- no crash
+- malformed `tags` are treated as non-matching for `tag` filter
+- other filters still work (`or` can still match on `assignee`)
 
 ---
 

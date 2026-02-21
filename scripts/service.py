@@ -284,7 +284,7 @@ def add_task(project_id, task_id, status=None, body=None, tags=None, assignee=No
         "status": status,
     }
 
-def list_tasks(project_id, status=None, tag=None, assignee=None, priority=None, fields=None, limit=100, offset=0, sort="updated_at", desc=True):
+def list_tasks(project_id, status=None, tag=None, assignee=None, priority=None, filter_mode="and", fields=None, limit=100, offset=0, sort="updated_at", desc=True):
     validate_id(project_id, "project_id")
     root = get_root()
     with ProjectLock(_project_dir(root, project_id)):
@@ -295,6 +295,9 @@ def list_tasks(project_id, status=None, tag=None, assignee=None, priority=None, 
             if status not in statuses:
                 raise NotFoundError("Status not found", {"status": status})
             statuses = [status]
+
+        if filter_mode not in {"and", "or"}:
+            raise ValidationError("Invalid filter mode", {"filter_mode": filter_mode})
 
         if limit is None or limit <= 0:
             raise ValidationError("Limit must be > 0")
@@ -315,12 +318,20 @@ def list_tasks(project_id, status=None, tag=None, assignee=None, priority=None, 
                     continue
                 meta_out = dict(meta)
                 meta_out["status"] = st
-                if tag and ("tags" not in meta_out or tag not in meta_out.get("tags", [])):
-                    continue
-                if assignee and meta_out.get("assignee") != assignee:
-                    continue
-                if priority and meta_out.get("priority") != priority:
-                    continue
+                checks = []
+                if tag:
+                    tags_val = meta_out.get("tags", [])
+                    checks.append(isinstance(tags_val, list) and tag in tags_val)
+                if assignee:
+                    checks.append(meta_out.get("assignee") == assignee)
+                if priority:
+                    checks.append(meta_out.get("priority") == priority)
+
+                if checks:
+                    matches = all(checks) if filter_mode == "and" else any(checks)
+                    if not matches:
+                        continue
+
                 items.append(meta_out)
 
     def sort_val(m):
@@ -330,7 +341,7 @@ def list_tasks(project_id, status=None, tag=None, assignee=None, priority=None, 
                 return None
             try:
                 return parse_due_date(val)
-            except ValidationError:
+            except Exception:
                 return None
         return val
 
@@ -344,6 +355,7 @@ def list_tasks(project_id, status=None, tag=None, assignee=None, priority=None, 
     present_sorted = sorted(present, key=key_fn, reverse=bool(desc))
     missing_sorted = sorted(missing, key=lambda m: m.get("task_id"))
     items_sorted = present_sorted + missing_sorted
+    total_count = len(items_sorted)
 
     paged = items_sorted[offset: offset + limit]
 
@@ -368,7 +380,7 @@ def list_tasks(project_id, status=None, tag=None, assignee=None, priority=None, 
             item[f] = m.get(f)
         out_items.append(item)
 
-    return {"ok": True, "project_id": project_id, "count": len(out_items), "items": out_items}
+    return {"ok": True, "project_id": project_id, "count": len(out_items), "count_total": total_count, "items": out_items}
 
 def show_task(project_id, task_id, include_body=False, max_body_chars=None, max_body_lines=None):
     validate_id(project_id, "project_id")
@@ -758,6 +770,77 @@ def integrity_check(project_id, fix=False, locked=False):
                                 meta[f] = now_utc_iso()
                             index_changed = True
                             _record(issue, resolved=True, fixed_item={"type": "FIELD_FILLED", "status": status, "task_id": task_id, "field": f})
+                        else:
+                            _record(issue)
+
+                # type hardening for known fields
+                for tf in ("created_at", "updated_at"):
+                    if tf in meta and not isinstance(meta.get(tf), str):
+                        issue = {"type": "FIELD_TYPE_INVALID", "status": status, "task_id": task_id, "field": tf}
+                        if fix:
+                            meta[tf] = now_utc_iso()
+                            index_changed = True
+                            _record(issue, resolved=True, fixed_item={"type": "FIELD_TYPE_FIXED", "status": status, "task_id": task_id, "field": tf})
+                        else:
+                            _record(issue)
+
+                if "tags" in meta:
+                    tags_val = meta.get("tags")
+                    tags_ok = False
+                    if isinstance(tags_val, list):
+                        tags_ok = all(isinstance(t, str) and t.strip() for t in tags_val)
+                    if not tags_ok:
+                        issue = {"type": "TAGS_INVALID", "status": status, "task_id": task_id}
+                        if fix:
+                            if isinstance(tags_val, list):
+                                meta["tags"] = [t for t in tags_val if isinstance(t, str) and t.strip()]
+                            else:
+                                meta["tags"] = []
+                            index_changed = True
+                            _record(issue, resolved=True, fixed_item={"type": "TAGS_NORMALIZED", "status": status, "task_id": task_id})
+                        else:
+                            _record(issue)
+
+                if "assignee" in meta and not isinstance(meta.get("assignee"), str):
+                    issue = {"type": "ASSIGNEE_INVALID", "status": status, "task_id": task_id}
+                    if fix:
+                        meta.pop("assignee", None)
+                        index_changed = True
+                        _record(issue, resolved=True, fixed_item={"type": "ASSIGNEE_REMOVED", "status": status, "task_id": task_id})
+                    else:
+                        _record(issue)
+
+                if "priority" in meta:
+                    prio = meta.get("priority")
+                    priority_ok = isinstance(prio, str)
+                    if priority_ok:
+                        try:
+                            validate_priority(prio)
+                        except ValidationError:
+                            priority_ok = False
+                    if not priority_ok:
+                        issue = {"type": "PRIORITY_INVALID", "status": status, "task_id": task_id, "priority": prio}
+                        if fix:
+                            meta.pop("priority", None)
+                            index_changed = True
+                            _record(issue, resolved=True, fixed_item={"type": "PRIORITY_REMOVED", "status": status, "task_id": task_id})
+                        else:
+                            _record(issue)
+
+                if "due_date" in meta:
+                    due = meta.get("due_date")
+                    due_ok = isinstance(due, str)
+                    if due_ok:
+                        try:
+                            validate_due_date(due)
+                        except ValidationError:
+                            due_ok = False
+                    if not due_ok:
+                        issue = {"type": "DUE_DATE_INVALID", "status": status, "task_id": task_id, "due_date": due}
+                        if fix:
+                            meta.pop("due_date", None)
+                            index_changed = True
+                            _record(issue, resolved=True, fixed_item={"type": "DUE_DATE_REMOVED", "status": status, "task_id": task_id})
                         else:
                             _record(issue)
 
