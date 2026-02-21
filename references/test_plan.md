@@ -261,7 +261,7 @@ python3 {baseDir}/scripts/task_tracking.py move acme-s4 fix_posting_logic done
 **Command**
 ```bash
 echo '{"set":{"priority":"P1","assignee":"Hannes"},"unset":["due_date"]}' | \
-  python3 {baseDir}/scripts/task_tracking.py meta-update acme-s4 fix_posting_logic --patch-stdin
+  python3 {baseDir}/scripts/task_tracking.py meta-update acme-s4 fix_posting_logic --stdin
 ```
 **Expected JSON**
 ```json
@@ -271,9 +271,25 @@ echo '{"set":{"priority":"P1","assignee":"Hannes"},"unset":["due_date"]}' | \
 ### 6.2 Forbidden fields
 **Command**
 ```bash
-echo '{"set":{"status":"done"}}' | python3 {baseDir}/scripts/task_tracking.py meta-update acme-s4 fix_posting_logic --patch-stdin
+echo '{"set":{"status":"done"}}' | python3 {baseDir}/scripts/task_tracking.py meta-update acme-s4 fix_posting_logic --stdin
 ```
 **Expected:** `VALIDATION_ERROR` (exit 2)
+
+### 6.3 Empty `--patch-json` → invalid JSON
+**Command**
+```bash
+python3 {baseDir}/scripts/task_tracking.py meta-update acme-s4 fix_posting_logic --patch-json ""
+```
+**Expected:** `VALIDATION_ERROR` (exit 2), message `Invalid JSON patch`
+
+### 6.4 Invalid UTF-8 on `--stdin` → `VALIDATION_ERROR`
+**Command**
+```bash
+python3 -c 'import sys; sys.stdout.buffer.write(b"\xff")' | python3 {baseDir}/scripts/task_tracking.py meta-update acme-s4 fix_posting_logic --stdin
+```
+**Expected:** `VALIDATION_ERROR` (exit 2), message `stdin must be valid UTF-8`
+
+### 6.5 `--stdin` with TTY stdin → `VALIDATION_ERROR` (`stdin required`, no blocking read)
 
 ---
 
@@ -298,7 +314,19 @@ echo "File body" > /tmp/body.md
 python3 {baseDir}/scripts/task_tracking.py set-body acme-s4 fix_posting_logic --file /tmp/body.md
 ```
 
-### 7.3 Invalid arguments (both or none) → `VALIDATION_ERROR`
+### 7.3 From stdin
+```bash
+printf "stdin body\n" | python3 {baseDir}/scripts/task_tracking.py set-body acme-s4 fix_posting_logic --stdin
+```
+
+### 7.4 Invalid UTF-8 on stdin → `VALIDATION_ERROR`
+```bash
+python3 -c 'import sys; sys.stdout.buffer.write(b"\xff")' | python3 {baseDir}/scripts/task_tracking.py set-body acme-s4 fix_posting_logic --stdin
+```
+
+### 7.5 `--stdin` with TTY stdin → `VALIDATION_ERROR` (`stdin required`, no blocking read)
+
+### 7.6 Invalid arguments (multiple or none) → `VALIDATION_ERROR`
 
 ---
 

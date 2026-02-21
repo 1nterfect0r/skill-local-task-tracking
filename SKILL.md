@@ -129,8 +129,8 @@ python3 {baseDir}/scripts/task_tracking.py show acme-s4 fix_posting_logic --body
 - `list <project_id> [filters...] [--filter-mode and|or] [--fields a,b,c] [--limit N] [--offset K] [--sort <field>] [--desc]` — list tasks
 - `show <project_id> <task_id> [--body] [--max-body-chars N] [--max-body-lines N]` — show task
 - `move <project_id> <task_id> <new_status>` — move task across columns (atomic)
-- `meta-update <project_id> <task_id> [--patch-json '{...}'] [--patch-stdin]` — patch metadata
-- `set-body <project_id> <task_id> (--text "...") | (--file /path/to/body.md)` — replace body
+- `meta-update <project_id> <task_id> [--patch-json '{...}'] [--stdin]` — patch metadata
+- `set-body <project_id> <task_id> (--text "...") | (--file /path/to/body.md) | (--stdin)` — replace body
 
 ---
 

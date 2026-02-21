@@ -322,7 +322,7 @@ task-tracking move <project_id> <task_id> <new_status>
 ### Syntax
 ```bash
 task-tracking meta-update <project_id> <task_id>
-  (--patch-json '<json>' | --patch-stdin)
+  (--patch-json '<json>' | --stdin)
 ```
 
 Exactly **one** patch source is allowed.
@@ -340,6 +340,11 @@ Exactly **one** patch source is allowed.
 ```
 
 ### Constraints
+- Exactly one source: `--patch-json` XOR `--stdin` (argument presence based, not truthiness).
+- For `--stdin`:
+  - if `stdin.isatty() == true` → `VALIDATION_ERROR` with message `stdin required` (no blocking read)
+  - reads raw bytes via `sys.stdin.buffer.read()`
+  - bytes are decoded strictly as UTF-8; decoding errors → `VALIDATION_ERROR` (`stdin must be valid UTF-8`)
 - Patch must be JSON object.
 - `set` (if present) must be an object.
 - `unset` (if present) must be a list.
@@ -376,12 +381,16 @@ Exactly **one** patch source is allowed.
 ### Syntax
 ```bash
 task-tracking set-body <project_id> <task_id>
-  (--text "<body>" | --file /path/to/file.md)
+  (--text "<body>" | --file /path/to/file.md | --stdin)
 ```
 
 ### Constraints
-- Exactly **one** source (`--text` XOR `--file`).
+- Exactly **one** source (`--text` XOR `--file` XOR `--stdin`).
 - For `--file`: file must exist, otherwise `NOT_FOUND`.
+- For `--stdin`:
+  - if `stdin.isatty() == true` → `VALIDATION_ERROR` with message `stdin required` (no blocking read)
+  - reads raw bytes via `sys.stdin.buffer.read()`
+  - bytes are decoded strictly as UTF-8; decoding errors → `VALIDATION_ERROR` (`stdin must be valid UTF-8`)
 - Body is completely replaced.
 - `updated_at` is updated.
 

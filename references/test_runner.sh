@@ -41,11 +41,17 @@ run_ok_cmd "set-body" "python3 ${baseDir}/scripts/task_tracking.py set-body acme
 run_ok "show body limits" python3 "${baseDir}/scripts/task_tracking.py" show acme-s4 adjust_tax_codes --body --max-body-lines 2 --max-body-chars 5
 run_ok "move open->done" python3 "${baseDir}/scripts/task_tracking.py" move acme-s4 adjust_tax_codes done
 run_ok "meta-update valid" python3 "${baseDir}/scripts/task_tracking.py" meta-update acme-s4 fix_posting_logic --patch-json '{"set":{"priority":"P1","assignee":"hannes"},"unset":["due_date"]}'
+run_ok_cmd "meta-update stdin" "printf '{\"set\":{\"priority\":\"P2\"},\"unset\":[]}' | python3 ${baseDir}/scripts/task_tracking.py meta-update acme-s4 fix_posting_logic --stdin"
 run_ok "set-body text" python3 "${baseDir}/scripts/task_tracking.py" set-body acme-s4 fix_posting_logic --text "Hello"
+run_ok_cmd "set-body stdin" "printf 'Body via stdin\n' | python3 ${baseDir}/scripts/task_tracking.py set-body acme-s4 fix_posting_logic --stdin"
+run_fail "set-body source xor text+stdin" 2 python3 "${baseDir}/scripts/task_tracking.py" set-body acme-s4 fix_posting_logic --text "X" --stdin
+run_fail_cmd "set-body stdin invalid utf8" 2 "python3 -c 'import sys; sys.stdout.buffer.write(b\"\\xff\")' | python3 ${baseDir}/scripts/task_tracking.py set-body acme-s4 fix_posting_logic --stdin"
 run_ok "integrity-check clean" python3 "${baseDir}/scripts/task_tracking.py" integrity-check acme-s4
 
 log "== Regression checks for fixes =="
 run_fail "meta-update invalid patch set=[]" 2 python3 "${baseDir}/scripts/task_tracking.py" meta-update acme-s4 fix_posting_logic --patch-json '{"set":[],"unset":[]}'
+run_fail "meta-update empty patch-json" 2 python3 "${baseDir}/scripts/task_tracking.py" meta-update acme-s4 fix_posting_logic --patch-json ""
+run_fail_cmd "meta-update stdin invalid utf8" 2 "python3 -c 'import sys; sys.stdout.buffer.write(b\"\\xff\")' | python3 ${baseDir}/scripts/task_tracking.py meta-update acme-s4 fix_posting_logic --stdin"
 run_fail "list limit >1000" 2 python3 "${baseDir}/scripts/task_tracking.py" list acme-s4 --limit 1001
 run_fail "list fields title forbidden" 2 python3 "${baseDir}/scripts/task_tracking.py" list acme-s4 --fields title --limit 10
 run_fail "list invalid filter-mode" 2 python3 "${baseDir}/scripts/task_tracking.py" list acme-s4 --filter-mode xor --limit 10

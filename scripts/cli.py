@@ -64,13 +64,14 @@ def main(argv=None):
     p_meta.add_argument("project_id")
     p_meta.add_argument("task_id")
     p_meta.add_argument("--patch-json")
-    p_meta.add_argument("--patch-stdin", action="store_true")
+    p_meta.add_argument("--stdin", action="store_true")
 
     p_body = sub.add_parser("set-body")
     p_body.add_argument("project_id")
     p_body.add_argument("task_id")
     p_body.add_argument("--text")
     p_body.add_argument("--file")
+    p_body.add_argument("--stdin", action="store_true")
 
     p_check = sub.add_parser("integrity-check")
     p_check.add_argument("project_id")
@@ -129,10 +130,19 @@ def main(argv=None):
             result = service.move_task(args.project_id, args.task_id, args.new_status)
 
         elif cmd == "meta-update":
-            if bool(args.patch_json) == bool(args.patch_stdin):
-                raise ValidationError("Provide exactly one of --patch-json or --patch-stdin")
-            if args.patch_stdin:
-                patch_raw = sys.stdin.read()
+            patch_json_provided = args.patch_json is not None
+            stdin_provided = bool(args.stdin)
+            if patch_json_provided == stdin_provided:
+                raise ValidationError("Provide exactly one of --patch-json or --stdin")
+
+            if stdin_provided:
+                if sys.stdin.isatty():
+                    raise ValidationError("stdin required")
+                patch_bytes = sys.stdin.buffer.read()
+                try:
+                    patch_raw = patch_bytes.decode("utf-8", errors="strict")
+                except UnicodeDecodeError:
+                    raise ValidationError("stdin must be valid UTF-8")
             else:
                 patch_raw = args.patch_json
             try:
@@ -142,7 +152,23 @@ def main(argv=None):
             result = service.meta_update(args.project_id, args.task_id, patch)
 
         elif cmd == "set-body":
-            result = service.set_body(args.project_id, args.task_id, text=args.text, file_path=args.file)
+            sources = int(args.text is not None) + int(args.file is not None) + int(args.stdin)
+            if sources != 1:
+                raise ValidationError("Provide exactly one of --text, --file or --stdin")
+
+            text = args.text
+            file_path = args.file
+            if args.stdin:
+                if sys.stdin.isatty():
+                    raise ValidationError("stdin required")
+                stdin_bytes = sys.stdin.buffer.read()
+                try:
+                    text = stdin_bytes.decode("utf-8", errors="strict")
+                except UnicodeDecodeError:
+                    raise ValidationError("stdin must be valid UTF-8")
+                file_path = None
+
+            result = service.set_body(args.project_id, args.task_id, text=text, file_path=file_path)
 
         elif cmd == "integrity-check":
             result = service.integrity_check(args.project_id, fix=args.fix)
