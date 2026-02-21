@@ -126,7 +126,7 @@ python3 {baseDir}/scripts/task_tracking.py show acme-s4 fix_posting_logic --body
 ## Commands (cheat sheet)
 - `init-project <project_id> [--statuses backlog,open,done]` — initialize a project and status columns
 - `add <project_id> --task-id <id> [--status <status>] [--body "..."] [--tags "a,b,c"]` — create task
-- `list <project_id> [filters...] [--fields a,b,c] [--limit N] [--offset K] [--sort <field>] [--desc]` — list tasks
+- `list <project_id> [filters...] [--filter-mode and|or] [--fields a,b,c] [--limit N] [--offset K] [--sort <field>] [--desc]` — list tasks
 - `show <project_id> <task_id> [--body] [--max-body-chars N] [--max-body-lines N]` — show task
 - `move <project_id> <task_id> <new_status>` — move task across columns (atomic)
 - `meta-update <project_id> <task_id> [--patch-json '{...}'] [--patch-stdin]` — patch metadata
@@ -148,4 +148,4 @@ python3 {baseDir}/scripts/task_tracking.py show acme-s4 fix_posting_logic --body
 - `references/architecture.md` — recovery and journaling internals
 - `references/design_scope.md` — scope / non-goals
 - `references/test_plan.md` — structured test plan
-- `references/test_log_2026-02-19.md` — executed test log
+- `references/test_log.md` — executed test log
